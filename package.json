@@ -1,0 +1,22 @@
+{
+  "name": "kijani-atelier",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:frontend": "cd apps/frontend && npm run dev",
+    "dev:backend": "cd apps/backend && php artisan serve"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcwachira/kijani-atelier.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mcwachira/kijani-atelier/issues"
+  },
+  "homepage": "https://github.com/mcwachira/kijani-atelier#readme"
+}
