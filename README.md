@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# PayrollFiti
 
-## Getting Started
+Multi-tenant, multi-country payroll SaaS for Africa — run compliant payroll for
+Kenya, Nigeria, and South Africa (statutory tax/deductions, payslips, bank
+export files, and billing) from one white-labelable platform.
 
-First, run the development server:
+## Monorepo layout
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+A pnpm + Turborepo monorepo:
+
+```
+.
+├── apps
+│   ├── api                  # NestJS REST API (auth, tenants, employees, payroll, billing, ...)
+│   └── web                  # Next.js (App Router) frontend
+└── packages
+    ├── api                  # Shared DTOs/enums (e.g. Role) used by both api and web
+    ├── payroll-rules        # Pure, country-pluggable tax/statutory engine (KE/NG/ZA) — no I/O
+    ├── eslint-config         # Shared eslint (+ prettier) config
+    ├── jest-config           # Shared jest config
+    └── typescript-config     # Shared tsconfig.json bases
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for architecture notes, environment
+variables, and production deployment guidance.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Core features
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- **Multi-tenant, multi-country payroll runs** — Kenya, Nigeria, and South Africa
+  statutory tax/deduction rules, computed by the pure `packages/payroll-rules`
+  engine and idempotent per period (re-running the same period is a no-op unless
+  underlying salary data changed).
+- **Employee management** — companies, employees, contracts, and versioned salary
+  structures, all scoped and isolated per tenant.
+- **Payslips** — PDF payslip generation and download per payroll entry.
+- **Bank export** — CSV bank-file generation per payroll run for salary
+  disbursement.
+- **Billing** — subscription plans, invoicing, and payment collection via Stripe
+  or M-Pesa.
+- **White-label branding** — per-tenant app name, logo, and color customization.
+- **Role-based access control** — Admin / HR / Employee roles enforced at the API
+  layer, plus an employee self-service portal (profile, payslip history, leave).
+- **Production hardening** — Helmet security headers, per-IP rate limiting,
+  structured JSON logging (`nestjs-pino`), and a real `/health` check
+  (`@nestjs/terminus`) covering both Postgres and Redis.
 
-## Learn More
+## Local dev quickstart
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# 1. Install dependencies
+pnpm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 2. Start Postgres + Redis
+docker compose up -d db redis
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+# 3. Copy env vars and adjust as needed
+cp .env.example .env
 
-## Deploy on Vercel
+# 4. Apply database migrations
+pnpm --filter api exec prisma migrate deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 5. Seed demo data (dev only — do not run against production)
+pnpm --filter api db:seed
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+# 6. Run api + web together
+pnpm dev
+```
+
+`apps/api` runs on `http://localhost:3000`, `apps/web` on `http://localhost:3001`.
+
+The seed script (`apps/api/prisma/seed.ts`) creates a demo tenant with:
+
+- **Admin login:** `admin@acme.co.ke` / `Password123!`
+- **Employee login:** `jane.wanjiru@acme.co.ke` / `Password123!`
+
+## Testing
+
+```bash
+# Unit tests across every app/package
+pnpm turbo run test
+
+# API end-to-end tests (needs a real Postgres — see docker compose step above)
+pnpm --filter api test:e2e
+```
+
+## Deployment
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full guide: required
+environment variables, secrets handling, migrations, health checks, logging,
+scaling notes, and CI/CD.
