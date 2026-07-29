@@ -1,74 +1,147 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  Outlet,
+  Link,
+  createRootRouteWithContext,
+  useRouter,
   HeadContent,
   Scripts,
-  createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import Footer from '../components/Footer'
-import Header from '../components/Header'
-
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
-
+import { useEffect, type ReactNode } from 'react'
+import { CartProvider } from '#/hooks/use-cart.tsx'
+import { Toaster } from '@/components/ui/sonner.tsx'
+import { reportLovableError } from '../lib/lovable-error-reporting'
 import appCss from '../styles.css?url'
 
-import type { QueryClient } from '@tanstack/react-query'
+function NotFoundComponent() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bvackground px-4">
+      <div className="max-w-md text-center">
+        <h1 className="text-7xl font-bold text-foreground">404</h1>
 
-interface MyRouterContext {
-  queryClient: QueryClient
+        <h2 className="nmt-4 text-xl font-semibold text-foreground">
+          Page Not Found
+        </h2>
+
+        <p className="mt-2 text-sm text-muted-foreeground">
+          The page you are looking for does not exist or has been moved.
+        </p>
+
+        <Link
+          to="/"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:ng-primary/90"
+        >
+          Go Home
+        </Link>
+      </div>
+    </div>
+  )
 }
 
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);if(mode==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',mode)}root.style.colorScheme=resolved;}catch(e){}})();`
+function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+  console.error(error)
+  const router = useRouter()
+  useEffect(() => {
+    reportLovableError(error, { boundary: 'tanstack_root_error_component' })
+  }, [error])
 
-export const Route = createRootRouteWithContext<MyRouterContext>()({
-  head: () => ({
-    meta: [
-      {
-        charSet: 'utf-8',
-      },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
-      },
-      {
-        title: 'TanStack Start Starter',
-      },
-    ],
-    links: [
-      {
-        rel: 'stylesheet',
-        href: appCss,
-      },
-    ],
-  }),
-  shellComponent: RootDocument,
-})
-
-function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="max-w-md text-center">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          This page didn't load
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Something went wrong on our end. You can try refreshing or head back
+          home.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <button
+            onClick={() => {
+              router.invalidate()
+              reset()
+            }}
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Try again
+          </button>
+          <a
+            href="/"
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Go home
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
+  {
+    head: () => ({
+      meta: [
+        { charSet: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { title: 'Kijani Atelier — Handcrafted Sandals, Kiondos & Woven Bags' },
+        {
+          name: 'description',
+          content:
+            'Handmade leather sandals, kiondos, woven handbags and artisan accessories, made by women artisans in Kenya.',
+        },
+        { name: 'author', content: 'Kijani Atelier' },
+        { property: 'og:type', content: 'website' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+      ],
+
+      links: [
+        { rel: 'stylesheet', href: appCss },
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        {
+          rel: 'preconnect',
+          href: 'https://fonts.gstatic.com',
+          crossOrigin: 'anonymous',
+        },
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Karla:wght@300;400;500;600&display=swap',
+        },
+        { rel: 'icon', href: '/favicon.ico', type: 'image/x-icon' },
+      ],
+    }),
+
+    shellComponent: RootShell,
+    component: RootComponent,
+    notFoundComponent: NotFoundComponent,
+    errorComponent: ErrorComponent,
+  },
+)
+
+function RootShell({ children }: { children: ReactNode }) {
+  return (
+    <html>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-[rgba(79,184,178,0.24)]">
-        <Header />
+
+      <body>
         {children}
-        <Footer />
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-            TanStackQueryDevtools,
-          ]}
-        />
         <Scripts />
       </body>
     </html>
+  )
+}
+
+function RootComponent() {
+  const { queryClient } = Route.useRouteContext()
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <CartProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+        <Toaster position="top-center" />
+      </CartProvider>
+    </QueryClientProvider>
   )
 }
