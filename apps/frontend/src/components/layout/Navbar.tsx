@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useCart } from '@/hooks/use-cart'
-import { useWishlist } from '@/hooks/use-wishlist'
+import { useWishlist } from '@/hooks/use-whishlist.tsx'
 import { useTheme } from '@/hooks/use-theme'
 
 const links = [

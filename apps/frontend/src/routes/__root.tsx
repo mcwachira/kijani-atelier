@@ -12,6 +12,7 @@ import { CartProvider } from '#/hooks/use-cart.tsx'
 import { Toaster } from '@/components/ui/sonner.tsx'
 import { reportLovableError } from '../lib/lovable-error-reporting'
 import appCss from '../styles.css?url'
+import { WishlistProvider } from '#/hooks/use-whishlist.tsx'
 
 function NotFoundComponent() {
   return (
@@ -137,11 +138,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <CartProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <Toaster position="top-center" />
-      </CartProvider>
+      <WishlistProvider>
+        <CartProvider>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+          <Toaster position="top-center" />
+        </CartProvider>
+      </WishlistProvider>
     </QueryClientProvider>
   )
 }
