@@ -13,6 +13,7 @@ export const categoriesQuery = () => queryOptions({queryKey:['categories'], quer
 export const reviewsQuery = (productId:number | string) => queryOptions({queryKey:["reviews", String(productId)], queryFn:() => api.getReviews(productId)})
 
 export const ordersQuery = () => queryOptions({ queryKey: ["orders"], queryFn: api.getOrders });
+export const orderQuery = (reference: string) => queryOptions({ queryKey: ["order", reference], queryFn: () => api.getOrder(reference) });
 
 export const userQuery = () => queryOptions({ queryKey: ["user"], queryFn: api.getUser });
 

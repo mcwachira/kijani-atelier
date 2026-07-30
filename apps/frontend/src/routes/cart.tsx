@@ -85,7 +85,9 @@ function CartPage() {
                           size="icon"
                           className="h-9 w-9"
                           onClick={() =>
-                            updateQuantity(item.id, item.quantity - 1)
+                            item.quantity <= 1
+                              ? removeItem(item.id)
+                              : updateQuantity(item.id, item.quantity - 1)
                           }
                           aria-label="Decrease quantity"
                         >

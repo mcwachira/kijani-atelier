@@ -19,7 +19,7 @@ export const Route = createFileRoute("/wishlist")({
         content: "Pieces you've saved for later — move them to your bag whenever you're ready.",
       },
       { property: "og:title", content: "Your Wishlist — Kijani Atelier" },
-      { property: "og:description", content: "Saved handcrafted pieces, ready to move sto your bag." },
+      { property: "og:description", content: "Saved handcrafted pieces, ready to move to your bag." },
     ],
   }),
   component: WishlistPage,
@@ -36,7 +36,7 @@ function WishlistPage(){
       toast.error(`Choose a size for ${item.product.name} first.`)
       return
     }
-    addItem(item.product, 1, item.size)
+    addItem(item.product, 1, item.size != null ? String(item.size) : null)
     remove(item.product.id)
     toast.success(`${item.product.name} moved to your bag.`)
   }
@@ -50,7 +50,7 @@ function WishlistPage(){
       return
     }
     ready.forEach((i) => {
-      addItem(i.product, 1, i.size)
+      addItem(i.product, 1, i.size != null ? String(i.size) : null)
       remove(i.product.id)
     })
     toast.success(
@@ -139,13 +139,13 @@ function WishlistPage(){
                             onClick={() =>
                               setSize(
                                 item.product.id,
-                                item.size === s ? null : s,
+                                String(item.size) === s ? null : Number(s),
                               )
                             }
-                            aria-pressed={item.size === s}
+                            aria-pressed={String(item.size) === s}
                             className={cn(
                               'h-9 w-9 rounded-md border text-xs transition-colors',
-                              item.size === s
+                              String(item.size) === s
                                 ? 'border-accent bg-accent text-accent-foreground'
                                 : 'border-border hover:border-foreground/40',
                             )}
