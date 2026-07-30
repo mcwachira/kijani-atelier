@@ -31,6 +31,7 @@ function LoginPage() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (res) => {
+      localStorage.setItem('kijani-auth', JSON.stringify({ user: res.user, token: res.token }));
       toast.success(`Welcome back, ${res.user.name.split(" ")[0]}.`);
       navigate({ to: "/" });
     },

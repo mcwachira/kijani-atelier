@@ -4,7 +4,7 @@ Handcrafted e-commerce platform for a Kenyan artisan brand — leather sandals, 
 
 ## Architecture
 
-```
+```text
 kijani-atelier/
 ├── apps/
 │   ├── frontend/     # TanStack Start + React 19 (Vite, SSR)
@@ -40,6 +40,8 @@ Built with [TanStack Start](https://tanstack.com/start/latest) (SSR), [TanStack 
 | `/checkout` | Checkout form — delivery details, M-Pesa/Card payment selection, order summary |
 | `/orders/$reference` | Order confirmation — items, status, delivery details |
 | `/wishlist` | Saved items — size selection, move-to-bag, move-all-to-bag |
+| `/login` | Sign in — authenticates user, persists session |
+| `/register` | Create account — registers and persists session |
 | `/about` | Brand story |
 | `/demo/tanstack-query` | TanStack Query demo page |
 

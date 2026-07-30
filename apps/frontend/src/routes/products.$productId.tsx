@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { ChevronRight, Leaf, ShieldCheck, Truck } from 'lucide-react'
 
@@ -45,12 +45,17 @@ function ProductPage() {
   const [activeImage, setActiveImage] = useState(0)
   const [size, setSize] = useState<string | null>(null)
 
+  useEffect(() => {
+    setActiveImage(0)
+    setSize(null)
+  }, [productId])
+
   const { data: related } = useQuery({
     ...productsQuery({ category: product?.category.slug, per_page: 4 }),
     enabled: !!product,
   })
 
-  if (isLoading || !product) {
+  if (isLoading) {
     return (
       <StoreLayout>
         <div className="mx-auto grid max-w-7xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:px-8">
@@ -60,6 +65,22 @@ function ProductPage() {
             <Skeleton className="h-6 w-1/4" />
             <Skeleton className="h-32 w-full" />
           </div>
+        </div>
+      </StoreLayout>
+    )
+  }
+
+  if (!product) {
+    return (
+      <StoreLayout>
+        <div className="mx-auto max-w-6xl px-4 py-24 text-center">
+          <p className="font-display text-3xl">Product not found</p>
+          <p className="mt-2 text-muted-foreground">
+            This piece may have sold out or been removed.
+          </p>
+          <Button asChild className="mt-8">
+            <Link to="/shop">Browse the shop</Link>
+          </Button>
         </div>
       </StoreLayout>
     )

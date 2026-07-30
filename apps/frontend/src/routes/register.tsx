@@ -31,7 +31,8 @@ function RegisterPage(){
   const navigate = useNavigate()
   const mutation = useMutation({
     mutationFn: register,
-    onSuccess: () => {
+    onSuccess: (res) => {
+      localStorage.setItem('kijani-auth', JSON.stringify({ user: res.user, token: res.token }))
       toast.success('Account created -Karribu Kijani')
       navigate({ to: '/' })
     },

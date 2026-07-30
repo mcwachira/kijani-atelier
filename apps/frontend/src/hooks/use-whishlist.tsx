@@ -42,7 +42,7 @@ function parseStored(raw: string | null): WishlistItem[] {
       })
       .map((i) => ({
         product: i.product,
-        size: typeof i.size === 'string' ? i.size : null,
+        size: typeof i.size === 'string' ? i.size : typeof i.size === 'number' && Number.isFinite(i.size) ? String(i.size) : null,
         added_at:
           typeof i.added_at === 'string'
             ? i.added_at
