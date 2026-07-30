@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { MessageCircle, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,30 +27,35 @@ export function ChatWidget(){
     {
       id: 1,
       from: 'bot',
-      text: 'Karibu! I\'m Nia from the atelie    setMessages((m) => [...m, {id. "user":text}])r. Ask me about sizing, materials or delivery.',
+      text: 'Karibu! I\'m Nia from the atelier. Ask me about sizing, materials or delivery.',
     },
   ])
 
   const endRef = useRef<HTMLDivElement>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open])
 
-  const send = (e: React.FormEvent) => {
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+  }, [])
+
+  const send = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     const text = draft.trim()
     if (!text) return
     const id = Date.now()
     setMessages((m) => [...m, { id, from: 'user', text }])
     setDraft('')
-    setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       setMessages((m) => [
         ...m,
         { id: id + 1, from: 'bot', text: replies[m.length % replies.length] },
       ])
     }, 800)
-  }
+  }, [draft])
 
   return (
     <>

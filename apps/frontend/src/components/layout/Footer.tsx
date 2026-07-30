@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, linkOptions } from '@tanstack/react-router'
 import { Instagram, Mail, MapPin, Phone } from 'lucide-react'
 
 export function Footer() {
@@ -17,14 +17,19 @@ export function Footer() {
         <div>
           <h3 className="eyebrow">Shop</h3>
           <ul className="mt-4 space-y-2.5 text-sm">
-            {['sandals', 'kiondos', 'handbags', 'accessories'].map((slug) => (
-              <li key={slug}>
+            {linkOptions(
+              ['sandals', 'kiondos', 'handbags', 'accessories'].map((slug) => ({
+                to: '/shop' as const,
+                search: { category: slug },
+              })),
+            ).map((l, i) => (
+              <li key={i}>
                 <Link
-                  to="/shop"
-                  search={{ category: slug } as never}
+                  to={l.to}
+                  search={l.search}
                   className="capitalize text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  {slug}
+                  {['sandals', 'kiondos', 'handbags', 'accessories'][i]}
                 </Link>
               </li>
             ))}
@@ -38,13 +43,27 @@ export function Footer() {
               <MapPin className="h-4 w-4 shrink-0" /> Riverside Drive, Nairobi
             </li>
             <li className="flex items-center gap-2">
-              <Phone className="h-4 w-4 shrink-0" /> +254 700 000 000
+              <Phone className="h-4 w-4 shrink-0" />{' '}
+              <a href="tel:+254700000000" className="hover:text-foreground transition-colors">
+                +254 700 000 000
+              </a>
             </li>
             <li className="flex items-center gap-2">
-              <Mail className="h-4 w-4 shrink-0" /> hello@kijaniatelier.co.ke
+              <Mail className="h-4 w-4 shrink-0" />{' '}
+              <a href="mailto:hello@kijaniatelier.co.ke" className="hover:text-foreground transition-colors">
+                hello@kijaniatelier.co.ke
+              </a>
             </li>
             <li className="flex items-center gap-2">
-              <Instagram className="h-4 w-4 shrink-0" /> @kijaniatelier
+              <Instagram className="h-4 w-4 shrink-0" />{' '}
+              <a
+                href="https://instagram.com/kijaniatelier"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                @kijaniatelier
+              </a>
             </li>
           </ul>
         </div>

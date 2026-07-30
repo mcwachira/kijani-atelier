@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, linkOptions } from '@tanstack/react-router'
 import { Heart, Moon, ShoppingBag, Sun, User, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GlobalSearch, MobileSearchTrigger } from '@/components/GlobalSearch'
@@ -15,12 +15,12 @@ import { useCart } from '@/hooks/use-cart'
 import { useWishlist } from '@/hooks/use-whishlist.tsx'
 import { useTheme } from '@/hooks/use-theme'
 
-const links = [
-  { to: '/shop', label: 'Shop' },
+const links = linkOptions([
+  { to: '/shop', label: 'Shop', search: {} },
   { to: '/shop', label: 'Sandals', search: { category: 'sandals' } },
   { to: '/shop', label: 'Kiondos', search: { category: 'kiondos' } },
   { to: '/shop', label: 'Handbags', search: { category: 'handbags' } },
-]
+])
 
 export function Navbar() {
   const { count } = useCart()
@@ -50,7 +50,7 @@ export function Navbar() {
                 <Link
                   key={l.label}
                   to={l.to}
-                  search={l.search as never}
+                  search={l.search}
                   className="font-display text-2xl text-foreground"
                 >
                   {l.label}
@@ -87,7 +87,7 @@ export function Navbar() {
             <Link
               key={l.label}
               to={l.to}
-              search={l.search as never}
+              search={l.search}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               {l.label}
@@ -157,7 +157,7 @@ export function Navbar() {
             </Link>
           </Button>
 
-          <Button variant="ghost" size="icon" asChild aria-label="Cart">
+          <Button variant="ghost" size="icon" asChild aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}>
             <Link to="/cart" className="relative">
               <ShoppingBag className="h-5 w-5" />
               {count > 0 && (

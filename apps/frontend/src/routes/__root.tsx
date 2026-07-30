@@ -8,29 +8,30 @@ import {
   Scripts,
 } from '@tanstack/react-router'
 import { useEffect, type ReactNode } from 'react'
-import { CartProvider } from '#/hooks/use-cart.tsx'
-import { Toaster } from '@/components/ui/sonner.tsx'
-import { reportLovableError } from '../lib/lovable-error-reporting'
-import appCss from '../styles.css?url'
-import { WishlistProvider } from '#/hooks/use-whishlist.tsx'
+import { CartProvider } from '@/hooks/use-cart'
+import { Toaster } from '@/components/ui/sonner'
+import { reportLovableError } from '@/lib/lovable-error-reporting'
+import appCss from '@/styles.css?url'
+import { ThemeProvider } from '@/hooks/use-theme'
+import { WishlistProvider } from '@/hooks/use-whishlist'
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bvackground px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
 
-        <h2 className="nmt-4 text-xl font-semibold text-foreground">
+        <h2 className="mt-4 text-xl font-semibold text-foreground">
           Page Not Found
         </h2>
 
-        <p className="mt-2 text-sm text-muted-foreeground">
+        <p className="mt-2 text-sm text-muted-foreground">
           The page you are looking for does not exist or has been moved.
         </p>
 
         <Link
           to="/"
-          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:ng-primary/90"
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           Go Home
         </Link>
@@ -40,9 +41,9 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error)
   const router = useRouter()
   useEffect(() => {
+    console.error(error)
     reportLovableError(error, { boundary: 'tanstack_root_error_component' })
   }, [error])
 
@@ -120,8 +121,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html>
+    <html lang="en">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem("kijani-theme");if(!t||t==="system"){t=window.matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"}document.documentElement.classList.toggle("dark",t==="dark")})()`,
+          }}
+        />
         <HeadContent />
       </head>
 
@@ -138,6 +144,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <WishlistProvider>
         <CartProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
@@ -145,6 +152,7 @@ function RootComponent() {
           <Toaster position="top-center" />
         </CartProvider>
       </WishlistProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }

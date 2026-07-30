@@ -2,6 +2,7 @@ import {queryOptions} from '@tanstack/react-query'
 import type {ProductQueryParams} from "@/types"
 import * as api from "./api"
 
+export const MAX_PRICE = 16000
 
 export const productsQuery = (params:ProductQueryParams ={}) => queryOptions({queryKey:["products",params], queryFn:()=>api.getProducts(params)})
 

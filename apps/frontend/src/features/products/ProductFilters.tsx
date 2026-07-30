@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { categoriesQuery } from '@/lib/queries'
+import { categoriesQuery, MAX_PRICE } from '@/lib/queries'
 import type { Material, ProductQueryParams } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -13,7 +13,7 @@ const MATERIALS: Material[] = ['leather', 'woven', 'beads', 'brass']
 
 export interface FilterState {
   category?: string
-  size?: number
+  size?: string
   material?: Material
   priceRange: [number, number]
 }
@@ -52,11 +52,12 @@ export function ProductFilters({
       </div>
 
       <div>
-        <Label className="eyebrow">Category</Label>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <Label className="eyebrow" id="filter-category">Category</Label>
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-labelledby="filter-category">
           <button
             type="button"
             className={chip(!value.category)}
+            aria-pressed={!value.category}
             onClick={() => onChange({ category: undefined })}
           >
             All
@@ -66,6 +67,7 @@ export function ProductFilters({
               key={c.id}
               type="button"
               className={chip(value.category === c.slug)}
+              aria-pressed={value.category === c.slug}
               onClick={() => onChange({ category: c.slug })}
             >
               {c.name}
@@ -77,16 +79,17 @@ export function ProductFilters({
       <Separator />
 
       <div>
-        <Label className="eyebrow">Price</Label>
+        <Label className="eyebrow" id="filter-price">Price</Label>
         <Slider
           className="mt-5"
           min={0}
-          max={16000}
+          max={MAX_PRICE}
           step={500}
           value={value.priceRange}
           onValueChange={(v) =>
             onChange({ priceRange: [v[0], v[1]] as [number, number] })
           }
+          aria-label="Price range"
         />
         <p className="mt-3 text-xs text-muted-foreground">
           {formatKes(value.priceRange[0])} – {formatKes(value.priceRange[1])}
@@ -96,13 +99,14 @@ export function ProductFilters({
       <Separator />
 
       <div>
-        <Label className="eyebrow">Size (sandals)</Label>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <Label className="eyebrow" id="filter-size">Size (sandals)</Label>
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-labelledby="filter-size">
           {SIZES.map((s) => (
             <button
               key={s}
               type="button"
               className={chip(value.size === s)}
+              aria-pressed={value.size === s}
               onClick={() =>
                 onChange({ size: value.size === s ? undefined : s })
               }
@@ -116,13 +120,14 @@ export function ProductFilters({
       <Separator />
 
       <div>
-        <Label className="eyebrow">Material</Label>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <Label className="eyebrow" id="filter-material">Material</Label>
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-labelledby="filter-material">
           {MATERIALS.map((m) => (
             <button
               key={m}
               type="button"
               className={cn(chip(value.material === m), 'capitalize')}
+              aria-pressed={value.material === m}
               onClick={() =>
                 onChange({ material: value.material === m ? undefined : m })
               }

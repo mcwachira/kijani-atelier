@@ -29,7 +29,7 @@ const reviewSchema = z.object({
 
 export function ProductReviews({ productId }: { productId: number }) {
   const queryClient = useQueryClient()
-  const { data: reviews, isLoading } = useQuery(reviewsQuery(productId))
+  const { data: reviews, isLoading, isError } = useQuery(reviewsQuery(productId))
   const [rating, setRating] = useState(5)
   const [author, setAuthor] = useState('')
   const [body, setBody] = useState('')
@@ -81,7 +81,21 @@ export function ProductReviews({ productId }: { productId: number }) {
             Array.from({ length: 2 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full rounded-md" />
             ))}
-          {!isLoading && !reviews?.length && (
+          {isError && (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-destructive">
+                Failed to load reviews.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => queryClient.invalidateQueries({ queryKey })}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+          {!isLoading && !isError && !reviews?.length && (
             <p className="text-sm text-muted-foreground">
               No reviews yet — be the first to share your thoughts.
             </p>

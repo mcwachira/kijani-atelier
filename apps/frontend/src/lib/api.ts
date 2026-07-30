@@ -5,6 +5,7 @@ import type {
   Category,
   Message,
   Order,
+  OrderItem,
   Paginated,
   Product,
   ProductQueryParams,
@@ -29,19 +30,7 @@ import { categories, messages, orders, products, reviews } from "./mock-data";
  * This will be used when switching from mock → real Laravel backend.
  * ⚠️ Should be: http://127.0.0.1:8000/api
  */
-export const API_BASE_URL = "http://127.0.0.1:8000/api";
-
-/**
- * --------------------------------------------------------------------------
- * CART LINE TYPE
- * --------------------------------------------------------------------------
- * Represents a single item in the cart.
- */
-export type CartLine = {
-  product_id: number;
-  quantity: number;
-  size: string | null; // size should be string (e.g. "M", "42")
-};
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api";
 
 /**
  * --------------------------------------------------------------------------
@@ -237,56 +226,6 @@ export function createReview(input: {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                   CART API                                 */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Local cart storage (simulating backend state)
- */
-let cart: CartLine[] = [];
-
-/**
- * POST /cart
- * Add item to cart
- */
-export function addToCart(
-  productId: number,
-  quantity: number,
-  size: string | null
-) {
-  return mock({
-    ok: true,
-    product_id: productId,
-    quantity,
-    size,
-  });
-}
-
-/**
- * GET /cart
- * Fetch cart items
- */
-export function getCart() {
-  return mock({ items: cart });
-}
-
-/**
- * PATCH /cart/{itemId}
- * Update cart item quantity
- */
-export function updateCartItem(itemId: string, quantity: number) {
-  return mock({ ok: true, itemId, quantity });
-}
-
-/**
- * DELETE /cart/{itemId}
- * Remove item from cart
- */
-export function removeCartItem(itemId: string) {
-  return mock({ ok: true, itemId });
-}
-
-/* -------------------------------------------------------------------------- */
 /*                                   ORDERS                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -296,15 +235,17 @@ export function removeCartItem(itemId: string) {
  */
 export function createOrder(payload: CheckoutPayload): Promise<Order> {
 
-  /**
-   * Calculate total price based on cart items
-   */
-  const total = payload.items.reduce((sum, item) => {
-    const product = products.find(
-      (product) => product.id === item.product_id
-    );
-    return sum + ((product?.price || 0) * item.quantity);
-  }, 0);
+  const items: OrderItem[] = payload.items.map((item) => {
+    const product = products.find((p) => p.id === item.product_id);
+    return {
+      product_name: product?.name ?? `Product #${item.product_id}`,
+      quantity: item.quantity,
+      price: product?.price ?? 0,
+      size: item.size,
+    };
+  });
+
+  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   return mock<Order>(
     {
@@ -319,7 +260,7 @@ export function createOrder(payload: CheckoutPayload): Promise<Order> {
       payment_method: payload.payment_method,
       status: "pending",
       total,
-      items: [],
+      items,
       created_at: new Date().toISOString(),
     },
     900

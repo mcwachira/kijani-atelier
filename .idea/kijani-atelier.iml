@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/apps/backend" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/apps/backend/storage/app" />
       <excludeFolder url="file://$MODULE_DIR$/apps/backend/storage/framework" />
+      <excludeFolder url="file://$MODULE_DIR$/apps/backend/vendor/_laravel_idea" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

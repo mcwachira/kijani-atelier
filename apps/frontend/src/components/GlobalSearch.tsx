@@ -1,24 +1,24 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Clock, Loader2, Search, X } from 'lucide-react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { productQuery, productsQuery, reviewsQuery } from '@/lib/queries'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { productsQuery, MAX_PRICE } from '@/lib/queries'
 import { formatKes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 // Default query parameters used when redirecting the user to the full shop page
 const SHOP_DEFAULTS = {
   min_price: 0,
-  max_price: 16000,
+  max_price: MAX_PRICE,
   sort: 'newest' as const,
   page: 1,
 }
 
 const MAX_RESULTS = 6 // Maximum number of product suggestions to show in the dropdown
-const PREFETCH_COUNT = 3 // How many top search results to prefetch caches for
 const RECENT_KEY = 'kijani.recent-searches' // LocalStorage key for storing search history
 const MAX_RECENT = 6 // Limit for recent search history tags
 
@@ -94,7 +94,6 @@ export function GlobalSearch({
   fullScreen?: boolean
 }) {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
 
   // State Management
   const [query, setQuery] = useState('') // Instant raw input value
@@ -109,8 +108,12 @@ export function GlobalSearch({
   const listRef = useRef<HTMLUListElement>(null)
   const listboxId = useId() // Unique ID generated for ARIA listbox accessibility
 
-  // Fetch product catalog (up to 100 items for client-side search filtering)
-  const { data, isLoading } = useQuery(productsQuery({ per_page: 100 }))
+  // Fetch search results server-side using the debounced query term
+  const { data, isLoading } = useQuery({
+    ...productsQuery({ search: debounced, per_page: MAX_RESULTS }),
+    enabled: !!debounced,
+  })
+  const results = data?.data ?? []
 
   // Load recent searches from LocalStorage on mount
   useEffect(() => setRecent(readRecent()), [])
@@ -120,33 +123,11 @@ export function GlobalSearch({
     if (autoFocus) inputRef.current?.focus()
   }, [autoFocus])
 
-  // Debounce raw search input by 250ms to prevent expensive re-filtering on every keystroke
+  // Debounce raw search input by 250ms before sending the search query
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 250)
     return () => clearTimeout(t)
   }, [query])
-
-  // Filter products by matching title or category against the debounced query
-  const results = useMemo(() => {
-    const q = debounced.toLowerCase()
-    if (!q) return []
-    return (data?.data ?? [])
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.category.name.toLowerCase().includes(q),
-      )
-      .slice(0, MAX_RESULTS)
-  }, [data, debounced])
-
-  // Performance Optimization: Warm up cache for top hit details so target pages load instantly
-  useEffect(() => {
-    if (!debounced) return
-    for (const p of results.slice(0, PREFETCH_COUNT)) {
-      queryClient.prefetchQuery(productQuery(p.id))
-      queryClient.prefetchQuery(reviewsQuery(p.id))
-    }
-  }, [results, debounced, queryClient])
 
   // Search is pending if input is typing or React Query is fetching data
   const pending = query.trim() !== debounced || (isLoading && !!debounced)
@@ -411,7 +392,7 @@ export function GlobalSearch({
           className="w-full rounded-full border-border/80 bg-secondary/60 pl-9 pr-9"
           aria-label="Search products by name or category"
           role="combobox"
-          aria-expanded={showResults}
+           aria-expanded={showPanel}
           aria-controls={showResults ? listboxId : undefined}
           aria-autocomplete="list"
           aria-activedescendant={
@@ -460,51 +441,33 @@ export function GlobalSearch({
  * Displays a search icon button on smaller screens that toggles a full-screen search modal overlay.
  */
 export function MobileSearchTrigger({ className }: { className?: string }) {
-  const [open, setOpen] = useState(false)
-
-  // Prevent background body scrolling when the full-screen search overlay is open
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-    }
-  }, [open])
-
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className={className}
-        aria-label="Search"
-        onClick={() => setOpen(true)}
-      >
-        <Search className="h-5 w-5" />
-      </Button>
-
-      {/* Full-Screen Mobile Modal */}
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-background md:hidden"
-          role="dialog"
-          aria-modal="true"
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={className}
           aria-label="Search"
         >
-          <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
-            <GlobalSearch
-              className="flex-1"
-              autoFocus
-              fullScreen
-              onNavigate={() => setOpen(false)}
-            />
-            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+          <Search className="h-5 w-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="top" className="flex flex-col bg-background p-0 md:hidden">
+        <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
+          <GlobalSearch
+            className="flex-1"
+            autoFocus
+            fullScreen
+            onNavigate={() => {}}
+          />
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </div>
+          </SheetTrigger>
         </div>
-      )}
-    </>
+      </SheetContent>
+    </Sheet>
   )
 }

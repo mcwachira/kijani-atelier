@@ -17,7 +17,7 @@ export function StarRating({
   return (
     <div
       className={cn('flex items-center gap-0.5', className)}
-      role={interactive ? 'radiogroup' : 'img'}
+      role={interactive ? undefined : 'img'}
       aria-label={`${value} out of 5`}
     >
       {[1, 2, 3, 4, 5].map((i) => {
@@ -35,6 +35,7 @@ export function StarRating({
             key={i}
             type="button"
             onClick={() => onChange?.(i)}
+            aria-pressed={filled}
             aria-label={`Rate ${i}`}
             className="p-0.5"
           >

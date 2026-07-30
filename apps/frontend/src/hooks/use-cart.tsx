@@ -1,6 +1,6 @@
-import {createContext, useCallback, useContext, useEffect, useMemo,useState, type ReactNode} from 'react'
-import * as api from "@/lib/api.ts"
-import type {Cart, CartItem, Product} from "@/types"
+import {createContext, useCallback, useContext, useEffect, useMemo, type ReactNode} from 'react'
+import type {CartItem, Product} from "@/types"
+import {usePersistedState} from './use-persisted-state'
 
 const STORAGE_KEY = "kijani-cart-v2";
 const LEGACY_KEY = "kijani-cart";
@@ -40,39 +40,18 @@ function parseStored(raw:string|null):CartItem[]{
   }
 }
 export function CartProvider({children}: {children: ReactNode}) {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [hydrated, setHydrated] = useState(false)
+  const [items, setItems, hydrated] = usePersistedState(STORAGE_KEY, parseStored)
 
-  useEffect(()  => {
-    const stored = parseStored(window.localStorage.getItem(STORAGE_KEY));
-    const legacy = stored.length?[]:parseStored(window.localStorage.getItem(LEGACY_KEY))
-    const restored = stored.length ?stored:legacy
-    if (restored.length) setItems((current) => (current.length ? current : restored));
-    window.localStorage.removeItem(LEGACY_KEY);
-    setHydrated(true);
-  }, []);
-
-  // Persist every change (quantities and sizes included) once hydration has happened,
-  // so a refresh or a brand-new session restores the exact same bag.
+  // Legacy key migration: run once after hydration
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      /* storage full or unavailable */
+    if (!hydrated) return
+    if (items.length > 0) return
+    const legacy = parseStored(window.localStorage.getItem(LEGACY_KEY))
+    if (legacy.length) {
+      setItems(legacy)
+      window.localStorage.removeItem(LEGACY_KEY)
     }
-  }, [items, hydrated]);
-
-  // Keep other open tabs in sync.
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setItems(parseStored(e.newValue));
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-
+  }, [hydrated])
 
   const addItem = useCallback((product: Product, quantity = 1, size: string | null = null) => {
     const id = `${product.id}-${size ?? "os"}`;
@@ -81,20 +60,15 @@ export function CartProvider({children}: {children: ReactNode}) {
             ? current.map((i) => (i.id === id ? { ...i, quantity: i.quantity + quantity } : i))
             : [...current, { id, product, quantity, size }],
     );
-    void api.addToCart(product.id, quantity, size);
   }, []);
-
-
 
   const updateQuantity = useCallback((id: string, quantity: number) => {
     if (quantity < 1) return;
     setItems((current) => current.map((i) => (i.id === id ? { ...i, quantity } : i)));
-    void api.updateCartItem(id, quantity);
   }, []);
 
   const removeItem = useCallback((id: string) => {
     setItems((current) => current.filter((i) => i.id !== id));
-    void api.removeCartItem(id);
   }, []);
 
   const clear = useCallback(() => setItems([]), []);
