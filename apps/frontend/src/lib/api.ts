@@ -274,6 +274,15 @@ export function getOrders(): Promise<Order[]> {
   return mock(orders);
 }
 
+/**
+ * GET /orders/{reference}
+ */
+export function getOrder(reference: string): Promise<Order> {
+  const found = orders.find((o) => o.reference === reference);
+  if (!found) return Promise.reject(new Error("Order not found"));
+  return mock(found);
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                   AUTH                                     */
 /* -------------------------------------------------------------------------- */

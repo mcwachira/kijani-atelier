@@ -19,7 +19,7 @@ export const Route = createFileRoute("/wishlist")({
         content: "Pieces you've saved for later — move them to your bag whenever you're ready.",
       },
       { property: "og:title", content: "Your Wishlist — Kijani Atelier" },
-      { property: "og:description", content: "Saved handcrafted pieces, ready to move sto your bag." },
+      { property: "og:description", content: "Saved handcrafted pieces, ready to move to your bag." },
     ],
   }),
   component: WishlistPage,

@@ -47,7 +47,7 @@ export interface ProductQueryParams {
   category?: string;
   min_price?: number;
   max_price?: number;
-  size?: number;
+  size?: string;
   material?: Material;
   sort?: "newest" | "price_asc" | "price_desc";
   page?: number;
@@ -59,7 +59,7 @@ export interface CartItem {
   id: string;
   product: Product;
   quantity: number;
-  size: number | null;
+  size: string | null;
 }
 
 export interface Cart {
@@ -80,7 +80,7 @@ export interface OrderItem {
   product_name: string;
   quantity: number;
   price: number;
-  size: number | null;
+  size: string | null;
 }
 
 export type OrderStatus = "pending" | "paid" | "shipped" | "delivered" | "cancelled";
@@ -109,7 +109,7 @@ export interface CheckoutPayload {
   county: string;
   town: string;
   payment_method: "mpesa" | "card";
-  items: { product_id: number; quantity: number; size: number | null }[];
+  items: { product_id: number; quantity: number; size: string | null }[];
 }
 
 export interface DashboardStats {

@@ -1,90 +1,102 @@
-# PayrollFiti
+# Kijani Atelier
 
-Multi-tenant, multi-country payroll SaaS for Africa — run compliant payroll for
-Kenya, Nigeria, and South Africa (statutory tax/deductions, payslips, bank
-export files, and billing) from one white-labelable platform.
+Handcrafted e-commerce platform for a Kenyan artisan brand — leather sandals, kiondos, woven handbags, and beaded accessories.
 
-## Monorepo layout
+## Architecture
 
-A pnpm + Turborepo monorepo:
-
-```
-.
-├── apps
-│   ├── api                  # NestJS REST API (auth, tenants, employees, payroll, billing, ...)
-│   └── web                  # Next.js (App Router) frontend
-└── packages
-    ├── api                  # Shared DTOs/enums (e.g. Role) used by both api and web
-    ├── payroll-rules        # Pure, country-pluggable tax/statutory engine (KE/NG/ZA) — no I/O
-    ├── eslint-config         # Shared eslint (+ prettier) config
-    ├── jest-config           # Shared jest config
-    └── typescript-config     # Shared tsconfig.json bases
+```text
+kijani-atelier/
+├── apps/
+│   ├── frontend/     # TanStack Start + React 19 (Vite, SSR)
+│   └── backend/      # Laravel (PHP) API
+└── packages/         # Shared packages (empty, ready for extraction)
 ```
 
-See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for architecture notes, environment
-variables, and production deployment guidance.
+## Frontend
 
-## Core features
+Built with [TanStack Start](https://tanstack.com/start/latest) (SSR), [TanStack Router](https://tanstack.com/router/latest), [TanStack Query](https://tanstack.com/query/latest), React 19, and Tailwind CSS v4.
 
-- **Multi-tenant, multi-country payroll runs** — Kenya, Nigeria, and South Africa
-  statutory tax/deduction rules, computed by the pure `packages/payroll-rules`
-  engine and idempotent per period (re-running the same period is a no-op unless
-  underlying salary data changed).
-- **Employee management** — companies, employees, contracts, and versioned salary
-  structures, all scoped and isolated per tenant.
-- **Payslips** — PDF payslip generation and download per payroll entry.
-- **Bank export** — CSV bank-file generation per payroll run for salary
-  disbursement.
-- **Billing** — subscription plans, invoicing, and payment collection via Stripe
-  or M-Pesa.
-- **White-label branding** — per-tenant app name, logo, and color customization.
-- **Role-based access control** — Admin / HR / Employee roles enforced at the API
-  layer, plus an employee self-service portal (profile, payslip history, leave).
-- **Production hardening** — Helmet security headers, per-IP rate limiting,
-  structured JSON logging (`nestjs-pino`), and a real `/health` check
-  (`@nestjs/terminus`) covering both Postgres and Redis.
+### Stack
 
-## Local dev quickstart
+| Layer | Choice |
+|---|---|
+| Framework | TanStack Start (SSR with Nitro) |
+| UI | React 19, shadcn/ui, Lucide icons |
+| Routing | TanStack Router (file-based, type-safe) |
+| Data fetching | TanStack Query (SWR caching, optimistic updates) |
+| Styling | Tailwind CSS v4 (`tw-animate-css`, custom oklch design tokens) |
+| Persistence | `localStorage` via `usePersistedState` (cart, wishlist, theme) |
+| Language | TypeScript 6 (strict, `noUnusedLocals`) |
+| Dev tools | TanStack Devtools (router + query), Vite 8 |
+
+### Routes
+
+| Path | Page |
+|---|---|
+| `/` | Home — hero, featured products, newsletter CTA, testimonials |
+| `/shop` | Product catalog with search, filters (category/size/price/material), sort, pagination |
+| `/products/$productId` | Product detail — gallery, size selector, add-to-cart, reviews, related products |
+| `/cart` | Shopping bag — quantity controls (Minus at 1 removes item), line-item remove, checkout link |
+| `/checkout` | Checkout form — delivery details, M-Pesa/Card payment selection, order summary |
+| `/orders/$reference` | Order confirmation — items, status, delivery details |
+| `/wishlist` | Saved items — size selection, move-to-bag, move-all-to-bag |
+| `/login` | Sign in — authenticates user, persists session |
+| `/register` | Create account — registers and persists session |
+| `/about` | Brand story |
+| `/demo/tanstack-query` | TanStack Query demo page |
+
+### Key Features
+
+- **Client-side search** — Debounced (250ms) product search with recent searches history, highlighted matches, keyboard navigation, responsive Sheet overlay on mobile
+- **Cart** — Persistent (v1→v2 migration), flat KSh 350 shipping, quantity management, fire-and-forget removal
+- **Wishlist** — Persistent, per-product size selection, bulk move to cart
+- **Theme** — Light/dark toggle with `localStorage` persistence, system preference detection, flash-free SSR via inline script
+- **Chat** — Live support widget with bot auto-replies
+- **Admin (mock)** — Dashboard with revenue chart, sales analytics by region, order management, message inbox
+- **Mock API layer** — `request<T>()` helper ready for Laravel; swap by setting `VITE_API_BASE_URL`
+
+### State Management
+
+- **CartContext** / **WishlistContext** / **ThemeContext** — React Context + `usePersistedState` (typed hydration-safe localStorage hook)
+- Router context provides `QueryClient` for SSR-safe data loading
+- Optimistic updates on review submission (invalidate + setQueryData)
+
+### Design System
+
+Custom oklch colour tokens (sand, clay, gold, charcoal), Cormorant Garamond (display) + Karla (body), `eyebrow` and `hover-lift` utilities. No hardcoded colours in components.
+
+### Getting Started
 
 ```bash
-# 1. Install dependencies
-pnpm install
+# Frontend
+cd apps/frontend
+npm install
+npm run dev          # → http://localhost:3000
+npm run generate-routes  # Regenerate routeTree.gen.ts after adding routes
+npm run build        # Production build
+npm run check        # Prettier + ESLint
+```
 
-# 2. Start Postgres + Redis
-docker compose up -d db redis
+## Backend
 
-# 3. Copy env vars and adjust as needed
+Standard [Laravel](https://laravel.com) API with Sanctum authentication.
+
+```bash
+cd apps/backend
 cp .env.example .env
-
-# 4. Apply database migrations
-pnpm --filter api exec prisma migrate deploy
-
-# 5. Seed demo data (dev only — do not run against production)
-pnpm --filter api db:seed
-
-# 6. Run api + web together
-pnpm dev
+composer install
+php artisan key:generate
+php artisan serve    # → http://127.0.0.1:8000
 ```
 
-`apps/api` runs on `http://localhost:3000`, `apps/web` on `http://localhost:3001`.
+CORS is pre-configured for `http://localhost:3000` and `http://127.0.0.1:3000`.
 
-The seed script (`apps/api/prisma/seed.ts`) creates a demo tenant with:
-
-- **Admin login:** `admin@acme.co.ke` / `Password123!`
-- **Employee login:** `jane.wanjiru@acme.co.ke` / `Password123!`
-
-## Testing
+## Development
 
 ```bash
-# Unit tests across every app/package
-pnpm turbo run test
-
-# API end-to-end tests (needs a real Postgres — see docker compose step above)
-pnpm --filter api test:e2e
+# From root — run both
+npm run dev:frontend
+npm run dev:backend
 ```
 
-## Deployment
-
-See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full guide: required
-environment variables, secrets handling, migrations, health checks, logging,
-scaling notes, and CI/CD.
+The frontend currently uses **mock data** (`src/lib/mock-data.ts`). To connect the Laravel backend, set `VITE_API_BASE_URL=http://127.0.0.1:8000/api` in `apps/frontend/.env`.

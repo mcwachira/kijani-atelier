@@ -221,7 +221,7 @@ function CheckoutPage() {
                 <li key={i.id} className="flex items-center gap-3">
                   <img
                     src={i.product.images[0]}
-                    alt=""
+                    alt={i.product.name}
                     loading="lazy"
                     className="h-14 w-12 rounded object-cover"
                   />

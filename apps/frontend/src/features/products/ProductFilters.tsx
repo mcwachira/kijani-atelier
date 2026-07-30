@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { formatKes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-const SIZES = [36, 37, 38, 39, 40, 41]
+const SIZES = ['36', '37', '38', '39', '40', '41']
 const MATERIALS: Material[] = ['leather', 'woven', 'beads', 'brass']
 
 export interface FilterState {
@@ -86,9 +86,10 @@ export function ProductFilters({
           max={MAX_PRICE}
           step={500}
           value={value.priceRange}
-          onValueChange={(v) =>
-            onChange({ priceRange: [v[0], v[1]] as [number, number] })
-          }
+          onValueChange={(v) => {
+            const range: [number, number] = [v[0] ?? 0, v[1] ?? MAX_PRICE]
+            onChange({ priceRange: range })
+          }}
           aria-label="Price range"
         />
         <p className="mt-3 text-xs text-muted-foreground">

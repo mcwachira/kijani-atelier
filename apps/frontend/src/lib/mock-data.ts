@@ -51,7 +51,7 @@ type Seed = {
   category: string
   image: string
   materials: Product['materials']
-  sizes: number[]
+  sizes: string[]
   isNew?: boolean
   compare?: number
 }
@@ -63,7 +63,7 @@ const seeds: Seed[] = [
     category: 'sandals',
     image: sandals,
     materials: ['leather', 'beads'],
-    sizes: [36, 37, 38, 39, 40, 41],
+    sizes: ['36', '37', '38', '39', '40', '41'],
     isNew: true,
   },
   {
@@ -72,7 +72,7 @@ const seeds: Seed[] = [
     category: 'sandals',
     image: sandals,
     materials: ['leather'],
-    sizes: [36, 37, 38, 39, 40],
+    sizes: ['36', '37', '38', '39', '40'],
   },
   {
     name: 'Sanaa Ankle Wrap',
@@ -80,7 +80,7 @@ const seeds: Seed[] = [
     category: 'sandals',
     image: sandals,
     materials: ['leather', 'beads'],
-    sizes: [37, 38, 39, 40, 41],
+    sizes: ['37', '38', '39', '40', '41'],
     compare: 10500,
   },
   {
@@ -89,7 +89,7 @@ const seeds: Seed[] = [
     category: 'sandals',
     image: sandals,
     materials: ['leather'],
-    sizes: [36, 37, 38, 39],
+    sizes: ['36', '37', '38', '39'],
   },
   {
     name: 'Kiondo Classic Tote',
