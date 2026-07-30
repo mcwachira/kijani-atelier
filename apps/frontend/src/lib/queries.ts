@@ -9,7 +9,7 @@ export const productQuery = (id:number |string) => queryOptions({queryKey:["prod
 
 export const categoriesQuery = () => queryOptions({queryKey:['categories'], queryFn:api.getCategories})
 
-export const reviewQuery = (productId:number | string) => queryOptions({queryKey:["reviews", String(productId)], queryFn:() => api.getReviews(productId)})
+export const reviewsQuery = (productId:number | string) => queryOptions({queryKey:["reviews", String(productId)], queryFn:() => api.getReviews(productId)})
 
 export const ordersQuery = () => queryOptions({ queryKey: ["orders"], queryFn: api.getOrders });
 
