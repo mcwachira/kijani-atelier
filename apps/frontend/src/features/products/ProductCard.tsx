@@ -20,7 +20,7 @@ export function ProductCard({ product }: { product: Product }) {
             loading="lazy"
             width={1000}
             height={1250}
-            className="aspect-[4/5] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+            className="aspect-4/5 w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
           />
           {product.is_new && (
             <span className="absolute left-3 top-3 rounded-full bg-background/90 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-foreground">

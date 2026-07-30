@@ -13,7 +13,7 @@ export function WishlistButton({
   className,
 }: {
   product: Product
-  size?: number | null
+  size?: string | null
   variant?: 'icon' | 'full'
   className?: string
 }) {

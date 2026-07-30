@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
@@ -37,6 +39,16 @@ const CartRoute = CartRouteImport.update({
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
@@ -70,6 +82,8 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -81,6 +95,8 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -93,6 +109,8 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/shop': typeof ShopRoute
   '/wishlist': typeof WishlistRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -106,6 +124,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/cart'
     | '/checkout'
+    | '/login'
+    | '/register'
     | '/shop'
     | '/wishlist'
     | '/demo/tanstack-query'
@@ -117,6 +137,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/cart'
     | '/checkout'
+    | '/login'
+    | '/register'
     | '/shop'
     | '/wishlist'
     | '/demo/tanstack-query'
@@ -128,6 +150,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/cart'
     | '/checkout'
+    | '/login'
+    | '/register'
     | '/shop'
     | '/wishlist'
     | '/demo/tanstack-query'
@@ -140,6 +164,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
+  LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
   ShopRoute: typeof ShopRoute
   WishlistRoute: typeof WishlistRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
@@ -175,6 +201,20 @@ declare module '@tanstack/react-router' {
       path: '/checkout'
       fullPath: '/checkout'
       preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shop': {
@@ -220,6 +260,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
+  LoginRoute: LoginRoute,
+  RegisterRoute: RegisterRoute,
   ShopRoute: ShopRoute,
   WishlistRoute: WishlistRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,

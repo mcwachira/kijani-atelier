@@ -43,7 +43,7 @@ function ProductPage() {
   const { data: product, isLoading } = useQuery(productQuery(productId))
   const { addItem } = useCart()
   const [activeImage, setActiveImage] = useState(0)
-  const [size, setSize] = useState<number | null>(null)
+  const [size, setSize] = useState<string | null>(null)
 
   const { data: related } = useQuery({
     ...productsQuery({ category: product?.category.slug, per_page: 4 }),
@@ -94,7 +94,7 @@ function ProductPage() {
               alt={product.name}
               width={1000}
               height={1250}
-              className="aspect-[4/5] w-full rounded-md object-cover"
+              className="aspect-4/5 w-full rounded-md object-cover"
             />
             <div className="mt-4 flex gap-3">
               {product.images.map((img, i) => (

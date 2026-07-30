@@ -12,7 +12,7 @@ const STORAGE_KEY = 'kijani-wishlist-v1'
 
 export interface WishlistItem {
   product: Product
-  size: number | null
+  size: string | null
   added_at: string
 }
 
@@ -21,10 +21,10 @@ interface WishlistContextValue {
   count: number
   hydrated: boolean
   has: (productId: number) => boolean
-  add: (product: Product, size?: number | null) => void
+  add: (product: Product, size?: string | null) => void
   remove: (productId: number) => void
-  toggle: (product: Product, size?: number | null) => boolean
-  setSize: (productId: number, size: number | null) => void
+  toggle: (product: Product, size?: string | null) => boolean
+  setSize: (productId: number, size: string| null) => void
   clear: () => void
 }
 
@@ -42,7 +42,7 @@ function parseStored(raw: string | null): WishlistItem[] {
       })
       .map((i) => ({
         product: i.product,
-        size: typeof i.size === 'number' ? i.size : null,
+        size: typeof i.size === 'string' ? i.size : null,
         added_at:
           typeof i.added_at === 'string'
             ? i.added_at
@@ -61,7 +61,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     [items],
   )
 
-  const add = useCallback((product: Product, size: number | null = null) => {
+  const add = useCallback((product: Product, size: string | null = null) => {
     setItems((current) =>
       current.some((i) => i.product.id === product.id)
         ? current
@@ -74,7 +74,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toggle = useCallback(
-    (product: Product, size: number | null = null) => {
+    (product: Product, size: string | null = null) => {
       const saved = items.some((i) => i.product.id === product.id)
       if (saved) remove(product.id)
       else add(product, size)
@@ -83,7 +83,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     [items, add, remove],
   )
 
-  const setSize = useCallback((productId: number, size: number | null) => {
+  const setSize = useCallback((productId: number, size: string | null) => {
     setItems((current) =>
       current.map((i) => (i.product.id === productId ? { ...i, size } : i)),
     )
