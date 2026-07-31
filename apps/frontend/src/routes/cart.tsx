@@ -24,6 +24,7 @@ export const Route = createFileRoute('/cart')({
   }),
   component: CartPage,
 })
+
 function CartPage() {
   const { items, subtotal, shipping, total, updateQuantity, removeItem } =
     useCart()
@@ -59,7 +60,7 @@ function CartPage() {
                       src={item.product.images[0]}
                       alt={item.product.name}
                       loading="lazy"
-                      className="aspect-[4/5] w-full rounded-md object-cover"
+                      className="aspect-4/5 w-full rounded-md object-cover"
                     />
                   </Link>
                   <div className="min-w-0">
@@ -85,9 +86,7 @@ function CartPage() {
                           size="icon"
                           className="h-9 w-9"
                           onClick={() =>
-                            item.quantity <= 1
-                              ? removeItem(item.id)
-                              : updateQuantity(item.id, item.quantity - 1)
+                            updateQuantity(item.id, item.quantity - 1)
                           }
                           aria-label="Decrease quantity"
                         >
@@ -122,7 +121,7 @@ function CartPage() {
               ))}
             </ul>
 
-            <aside className="h-fit rounded-lg border border-border bg-card p-6 shadow-[var(--shadow-soft)]">
+            <aside className="h-fit rounded-lg border border-border bg-card p-6 shadow-(--shadow-soft)">
               <h2 className="font-display text-xl">Order summary</h2>
               <dl className="mt-5 space-y-3 text-sm">
                 <div className="flex justify-between">
