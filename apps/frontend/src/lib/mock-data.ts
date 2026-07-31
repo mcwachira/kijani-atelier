@@ -268,5 +268,6 @@ export const messages: Message[] = Array.from({ length: 8 }, (_, i) => ({
     "Hi, I wanted to ask about the fit of the Amani slide — I'm usually between sizes…",
   body: "Hi, I wanted to ask about the fit of the Amani slide — I'm usually between a 38 and 39. Would you recommend sizing up? Also, do you restock the ochre kiondo often? Thank you so much.",
   unread: i < 3,
+  replies: [],
   created_at: new Date(2026, 6, 23 - i).toISOString(),
 }))

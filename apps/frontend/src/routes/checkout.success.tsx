@@ -55,11 +55,11 @@ function CheckoutSuccessPage() {
   const { items, clear, hydrated } = useCart()
   const clearedFor = useRef<string | null>(null)
   useEffect(() => {
-    if (!reference || !hydrated) return
+    if (!reference || !hydrated || !order) return
     if (clearedFor.current === reference) return
     clearedFor.current = reference
     if (items.length) clear()
-  }, [reference, hydrated, items.length, clear])
+  }, [reference, hydrated, order, items.length, clear])
 
   return (
     <StoreLayout>

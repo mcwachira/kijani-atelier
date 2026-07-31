@@ -329,6 +329,7 @@ export function getUser(): Promise<User | null> {
   return mock<User | null>(null, 150)
 }
 
+
 /* -------------------------------------------------------------------------- */
 /*                                   ADMIN                                    */
 /* -------------------------------------------------------------------------- */
@@ -517,37 +518,6 @@ export function replyToMessage(input: {
   // return request<Message>(`/messages/${input.id}/replies`, { method: "POST", body: JSON.stringify(input) });
 }
 
-
-// POST /messages/{id}/replies
-export function replyToMessage(input: {
-  id: number;
-  body: string;
-  author: MessageAuthor;
-  author_name?: string;
-}): Promise<Message> {
-  const index = messages.findIndex((m) => m.id === input.id);
-  if (index === -1) return Promise.reject(new Error("Conversation not found"));
-  const body = input.body.trim();
-  if (body.length < 2) return Promise.reject(new Error("Write a reply before sending."));
-  if (body.length > 1000) return Promise.reject(new Error("Please keep the reply under 1000 characters."));
-
-  const reply: MessageReply = {
-    id: Date.now(),
-    author: input.author,
-    author_name: input.author_name?.trim() || (input.author === "admin" ? "Kijani Atelier" : messages[index].name),
-    body,
-    created_at: new Date().toISOString(),
-  };
-  const next: Message = {
-    ...messages[index],
-    replies: [...messages[index].replies, reply],
-    unread: input.author === "customer",
-  };
-  messages[index] = next;
-  return mock(next, 600);
-  // return request<Message>(`/messages/${input.id}/replies`, { method: "POST", body: JSON.stringify(input) });
-}
-
 // PATCH /admin/messages/{id}/read
 export function markMessageRead(id: number): Promise<Message> {
   const index = messages.findIndex((m) => m.id === id);
@@ -699,7 +669,7 @@ export function resetPassword(token: string, password: string): Promise<AuthMess
 
 // POST /email/verify
 export function verifyEmail(token?: string): Promise<AuthMessage> {
-  if (token === "") return Promise.reject(new Error("This verification link is invalid or has expired."));
+  if (!token) return Promise.reject(new Error("This verification link is invalid or has expired."));
   return mock({ message: "Your email address has been verified." }, 700);
   // return request("/email/verify", { method: "POST", body: JSON.stringify({ token }) });
 }
@@ -714,7 +684,7 @@ export function resendVerification(email?: string): Promise<AuthMessage> {
 
 export interface WishlistLine {
   product_id: number;
-  size: number | null;
+  size: string | null;
   added_at: string;
 }
 

@@ -91,7 +91,7 @@ function OrderConfirmationPage() {
   return (
     <StoreLayout>
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <div className="rounded-lg border border-border bg-card p-8 text-center shadow-[var(--shadow-soft)]">
+        <div className="rounded-lg border border-border bg-card p-8 text-center shadow-(--shadow-soft)">
           <CheckCircle2 className="mx-auto h-10 w-10 text-accent" />
           <p className="eyebrow mt-4">
             Thank you, {order.customer_name.split(' ')[0]}
