@@ -24,3 +24,10 @@ export const salesAnalyticsQuery = (filters: { from?: string; to?: string; regio
   queryOptions({ queryKey: ["sales-analytics", filters], queryFn: () => api.getSalesAnalytics(filters) });
 
 export const messagesQuery = () => queryOptions({ queryKey: ["messages"], queryFn: api.getMessages });
+
+export const customerMessagesQuery = (email: string) =>
+  queryOptions({
+    queryKey: ['customer-messages', email.toLowerCase()],
+    queryFn: () => api.getCustomerMessages(email),
+    enabled: !!email,
+  })
