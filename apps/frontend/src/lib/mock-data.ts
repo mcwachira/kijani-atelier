@@ -1,4 +1,12 @@
-import type { Category, Message, Order, Product, Review } from '@/types'
+import type {
+  Category,
+  Message,
+  Order,
+  OrderStatus,
+  OrderStatusEvent,
+  Product,
+  Review,
+} from '@/types'
 
 import sandals from '@/assets/cat-sandals.jpg'
 import kiondos from '@/assets/cat-kiondos.jpg'
@@ -211,9 +219,45 @@ const counties = [
   'Eldoret',
 ]
 
+const ORDER_SEQUENCE: OrderStatus[] = [
+  'pending',
+  'paid',
+  'shipped',
+  'delivered',
+  'cancelled',
+]
+
+const ORDER_PATH: OrderStatus[] = ['pending', 'paid', 'shipped', 'delivered']
+
+const statusHistory = (
+  final: OrderStatus,
+  placedAt: string,
+): OrderStatusEvent[] => {
+  const chain =
+    final === 'cancelled'
+      ? (['pending', 'cancelled'] as OrderStatus[])
+      : ORDER_PATH.slice(0, ORDER_PATH.indexOf(final) + 1)
+  const placed = new Date(placedAt)
+  return chain.map((to, i, all) => ({
+    id: i + 1,
+    from: i === 0 ? null : all[i - 1],
+    to,
+    note:
+      i === 0
+        ? 'Order placed by customer.'
+        : to === 'cancelled'
+          ? 'Cancelled before dispatch.'
+          : `Marked ${to}.`,
+    actor: i === 0 ? 'System' : 'Admin',
+    created_at: new Date(placed.getTime() + i * 36_000_000).toISOString(),
+  }))
+}
+
 export const orders: Order[] = Array.from({ length: 14 }, (_, i) => {
   const p = products[i % products.length]
   const qty = 1 + (i % 3)
+  const status = ORDER_SEQUENCE[i % ORDER_SEQUENCE.length]
+  const created_at = new Date(2026, 6, 20 - i).toISOString()
   return {
     id: 1000 + i,
     reference: `KJ-${2600 + i}`,
@@ -238,9 +282,7 @@ export const orders: Order[] = Array.from({ length: 14 }, (_, i) => {
     ][i % 7],
     address: 'P.O. Box 1123',
     payment_method: i % 3 === 0 ? 'card' : 'mpesa',
-    status: (['pending', 'paid', 'shipped', 'delivered', 'cancelled'] as const)[
-      i % 5
-    ],
+    status,
     total: p.price * qty,
     items: [
       {
@@ -250,7 +292,8 @@ export const orders: Order[] = Array.from({ length: 14 }, (_, i) => {
         size: p.sizes[0] ?? null,
       },
     ],
-    created_at: new Date(2026, 6, 20 - i).toISOString(),
+    status_history: statusHistory(status, created_at),
+    created_at,
   }
 })
 
