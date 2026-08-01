@@ -9,10 +9,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Boxes, Receipt, TrendingUp, Users } from 'lucide-react'
+import { AlertCircle, Boxes, Receipt, TrendingUp, Users } from 'lucide-react'
 
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { StatusBadge } from '@/features/admin/StatusBadge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -45,7 +47,9 @@ export const Route = createFileRoute('/admin/')({
 
 
 function AdminOverview() {
-  const { data, isLoading } = useQuery(dashboardStatsQuery())
+  const { data, isLoading, isError, error, refetch } = useQuery(
+    dashboardStatsQuery(),
+  )
 
   const cards = [
     {
@@ -67,6 +71,23 @@ function AdminOverview() {
       title="Overview"
       description="How the atelier is trading this month."
     >
+      {isError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>
+              {error.message || 'Could not load the dashboard.'}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void refetch()}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((c) => (
           <Card key={c.label} className="shadow-[var(--shadow-soft)]">
@@ -119,7 +140,7 @@ function AdminOverview() {
                     borderRadius: 'var(--radius)',
                     color: 'var(--color-card-foreground)',
                   }}
-                  formatter={(v: number) => formatKes(v)}
+                  formatter={(v) => formatKes(Number(v ?? 0))}
                 />
                 <Bar
                   dataKey="revenue"

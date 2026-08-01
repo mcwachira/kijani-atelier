@@ -113,6 +113,7 @@ export interface Order {
   status: OrderStatus
   total: number
   items: OrderItem[]
+  status_history: OrderStatusEvent[]
   created_at: string
 }
 

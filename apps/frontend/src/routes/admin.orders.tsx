@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { History, Loader2 } from 'lucide-react'
 
@@ -154,10 +154,18 @@ function OrderStatusDialog({
       toast.success(`${updated.reference} marked ${updated.status}.`)
       setStatus(null)
       setNote('')
+      setActor('')
       setError(null)
     },
     onError: (e: Error) => setError(e.message),
   })
+
+  useEffect(() => {
+    setStatus(null)
+    setNote('')
+    setActor('')
+    setError(null)
+  }, [order?.id])
 
   if (!order) return null
   const options = ORDER_TRANSITIONS[order.status]

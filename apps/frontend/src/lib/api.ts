@@ -17,12 +17,13 @@ import type {
 } from '@/types'
 import { categories, messages, orders, products, reviews } from './mock-data'
 
-export const API_BASE_URL = 'http://127.0.0.1:8000/api'
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
 
 export type CartLine = {
   product_id: number
   quantity: number
-  size: number | null
+  size: string | null
 }
 
 /** Generic fetch helper used once the Laravel backend is wired up. */
@@ -134,7 +135,7 @@ export function createReview(input: {
 export function addToCart(
   productId: number,
   quantity: number,
-  size: number | null,
+  size: string | null,
 ) {
   return mock({ ok: true, product_id: productId, quantity, size })
   // return request("/cart", { method: "POST", body: JSON.stringify({ product_id: productId, quantity, size }) });
@@ -164,10 +165,12 @@ export function removeCartItem(itemId: string) {
 export function createOrder(payload: CheckoutPayload): Promise<Order> {
   const lines = payload.items.map((line) => {
     const product = products.find((p) => p.id === line.product_id)
+    if (!product)
+      throw new Error('One of the pieces in your order is no longer available.')
     return {
-      product_name: product?.name ?? 'Kijani piece',
+      product_name: product.name,
       quantity: line.quantity,
-      price: product?.price ?? 0,
+      price: product.price,
       size: line.size,
     }
   })
@@ -543,8 +546,16 @@ export function updateProduct(
   const category = categories.find((c) => c.slug === input.category)
   if (index === -1 || !category)
     return Promise.reject(new Error('Product not found'))
+  const previous = products[index]
+  if (previous.category.id !== category.id) {
+    previous.category.products_count = Math.max(
+      0,
+      previous.category.products_count - 1,
+    )
+    category.products_count += 1
+  }
   const next: Product = {
-    ...products[index],
+    ...previous,
     name: input.name,
     slug: slugify(input.name),
     price: input.price,
@@ -561,6 +572,10 @@ export function updateProduct(
 export function deleteProduct(id: number): Promise<{ id: number }> {
   const index = products.findIndex((p) => p.id === id)
   if (index === -1) return Promise.reject(new Error('Product not found'))
+  products[index].category.products_count = Math.max(
+    0,
+    products[index].category.products_count - 1,
+  )
   products.splice(index, 1)
   return mock({ id }, 500)
   // return request(`/admin/products/${id}`, { method: "DELETE" });
@@ -653,7 +668,7 @@ export function resetPassword(
 
 // POST /email/verify
 export function verifyEmail(token?: string): Promise<AuthMessage> {
-  if (token === '')
+  if (!token)
     return Promise.reject(
       new Error('This verification link is invalid or has expired.'),
     )
@@ -678,7 +693,7 @@ export function resendVerification(email?: string): Promise<AuthMessage> {
 
 export interface WishlistLine {
   product_id: number
-  size: number | null
+  size: string | null
   added_at: string
 }
 

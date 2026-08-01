@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { AlertCircle } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -14,6 +15,8 @@ import {
 } from 'recharts'
 
 import { AdminLayout } from '@/components/layout/AdminLayout'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -78,11 +81,16 @@ const tooltipStyle = {
 }
 
 function AdminAnalytics() {
+  const today = new Date()
   const [region, setRegion] = useState('All regions')
-  const [from, setFrom] = useState('2026-02-01')
-  const [to, setTo] = useState('2026-07-31')
+  const [from, setFrom] = useState(
+    new Date(today.getFullYear(), today.getMonth() - 5, 1)
+      .toISOString()
+      .slice(0, 10),
+  )
+  const [to, setTo] = useState(today.toISOString().slice(0, 10))
 
-  const { data, isLoading } = useQuery(
+  const { data, isLoading, isError, error, refetch } = useQuery(
     salesAnalyticsQuery({
       from,
       to,
@@ -135,6 +143,24 @@ function AdminAnalytics() {
         </CardContent>
       </Card>
 
+      {isError && (
+        <Alert variant="destructive" className="mt-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span>
+              {error.message || 'Could not load analytics.'}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void refetch()}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <Card className="shadow-[var(--shadow-soft)]">
           <CardHeader>
@@ -167,7 +193,7 @@ function AdminAnalytics() {
                   />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v: number) => formatKes(v)}
+                    formatter={(v) => formatKes(Number(v ?? 0))}
                   />
                   <Line
                     type="monotone"
@@ -213,7 +239,7 @@ function AdminAnalytics() {
                   />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v: number) => formatKes(v)}
+                    formatter={(v) => formatKes(Number(v ?? 0))}
                   />
                   <Bar
                     dataKey="sales"

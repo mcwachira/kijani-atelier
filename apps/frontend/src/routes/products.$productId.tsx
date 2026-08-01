@@ -43,7 +43,7 @@ function ProductPage() {
   const { data: product, isLoading } = useQuery(productQuery(productId))
   const { addItem } = useCart()
   const [activeImage, setActiveImage] = useState(0)
-  const [size, setSize] = useState<number | null>(null)
+  const [size, setSize] = useState<string | null>(null)
 
   const { data: related } = useQuery({
     ...productsQuery({ category: product?.category.slug, per_page: 4 }),

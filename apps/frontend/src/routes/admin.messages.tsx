@@ -2,13 +2,14 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { messagesQuery } from '@/lib/queries'
 import { markMessageRead, replyToMessage } from '@/lib/api'
 import { formatDate } from '@/lib/format'
@@ -32,7 +33,9 @@ export const Route = createFileRoute('/admin/messages')({
 
 function AdminMessages() {
   const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery(messagesQuery())
+  const { data, isLoading, isError, error: loadError, refetch } = useQuery(
+    messagesQuery(),
+  )
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -40,9 +43,13 @@ function AdminMessages() {
 
   useEffect(() => {
     if (selected?.unread) {
-      markMessageRead(selected.id).then(() =>
-        queryClient.invalidateQueries({ queryKey: ['messages'] }),
-      )
+      markMessageRead(selected.id)
+        .then(() =>
+          queryClient.invalidateQueries({ queryKey: ['messages'] }),
+        )
+        .catch((err: Error) =>
+          toast.error(err.message || 'Could not update the message.'),
+        )
     }
   }, [selected?.id, selected?.unread, queryClient])
 
@@ -72,6 +79,23 @@ function AdminMessages() {
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
               </div>
+            )}
+            {isError && (
+              <Alert variant="destructive" className="m-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="flex items-center justify-between gap-4">
+                  <span>
+                    {loadError.message || 'Could not load messages.'}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void refetch()}
+                  >
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
             )}
             <ul className="divide-y divide-border">
               {data?.map((m) => (

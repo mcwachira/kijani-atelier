@@ -50,10 +50,10 @@ import { categoriesQuery, productsQuery } from '@/lib/queries'
 import {
   createProduct,
   deleteProduct,
-  updateProduct
-
+  updateProduct,
 } from '@/lib/api'
-import type {ProductInput} from '@/lib/api';
+import type { ProductInput } from '@/lib/api'
+import { zodFieldErrors } from '@/lib/utils'
 import { formatKes } from '@/lib/format'
 import type { Product } from '@/types'
 
@@ -84,7 +84,7 @@ const productSchema = z.object({
     .positive('Price must be greater than zero.')
     .max(1_000_000),
   stock: z
-    .number()
+    .number({ error: 'Stock must be a whole number.' })
     .int('Stock must be a whole number.')
     .min(0, 'Stock cannot be negative.'),
   category: z.string().min(1, 'Choose a category.'),
@@ -132,15 +132,13 @@ function ProductForm({
     const parsed = productSchema.safeParse({
       name: String(form.get('name') ?? ''),
       price: Number(form.get('price')),
-      stock: Number(form.get('stock')),
+      stock:
+        form.get('stock') === '' ? undefined : Number(form.get('stock')),
       category,
       description: String(form.get('description') ?? ''),
     })
     if (!parsed.success) {
-      const next: FieldErrors = {}
-      for (const issue of parsed.error.issues)
-        next[issue.path[0] as keyof ProductInput] = issue.message
-      setErrors(next)
+      setErrors(zodFieldErrors<keyof ProductInput>(parsed.error.issues))
       return
     }
     setErrors({})
@@ -256,8 +254,9 @@ function ProductForm({
 
 function AdminProducts() {
   const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
   const { data, isLoading, isError, error, refetch } = useQuery(
-    productsQuery({ per_page: 50 }),
+    productsQuery({ per_page: 10, page }),
   )
   const [editing, setEditing] = useState<Product | null>(null)
   const [creating, setCreating] = useState(false)
@@ -377,6 +376,33 @@ function AdminProducts() {
           )}
         </CardContent>
       </Card>
+
+      {data && data.meta.last_page > 1 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Page {data.meta.current_page} of {data.meta.last_page} ·{' '}
+            {data.meta.total} products
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= data.meta.last_page}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent className="max-w-lg">

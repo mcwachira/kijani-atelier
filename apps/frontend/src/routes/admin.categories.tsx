@@ -37,6 +37,7 @@ import {
   updateCategory,
   type CategoryInput,
 } from '@/lib/api'
+import { zodFieldErrors } from '@/lib/utils'
 import type { Category } from '@/types'
 
 export const Route = createFileRoute('/admin/categories')({
@@ -105,10 +106,7 @@ function CategoryForm({
       description: String(form.get('description') ?? ''),
     })
     if (!parsed.success) {
-      const next: FieldErrors = {}
-      for (const issue of parsed.error.issues)
-        next[issue.path[0] as keyof CategoryInput] = issue.message
-      setErrors(next)
+      setErrors(zodFieldErrors<keyof CategoryInput>(parsed.error.issues))
       return
     }
     setErrors({})
@@ -133,9 +131,12 @@ function CategoryForm({
           defaultValue={category?.name}
           className="mt-1.5"
           aria-invalid={!!errors.name}
+          aria-describedby={errors.name ? 'c-name-error' : undefined}
         />
         {errors.name && (
-          <p className="mt-1 text-xs text-destructive">{errors.name}</p>
+          <p id="c-name-error" className="mt-1 text-xs text-destructive">
+            {errors.name}
+          </p>
         )}
       </div>
       <div>
@@ -147,9 +148,12 @@ function CategoryForm({
           defaultValue={category?.slug}
           className="mt-1.5"
           aria-invalid={!!errors.slug}
+          aria-describedby={errors.slug ? 'c-slug-error' : undefined}
         />
         {errors.slug && (
-          <p className="mt-1 text-xs text-destructive">{errors.slug}</p>
+          <p id="c-slug-error" className="mt-1 text-xs text-destructive">
+            {errors.slug}
+          </p>
         )}
       </div>
       <div>
@@ -160,9 +164,13 @@ function CategoryForm({
           rows={3}
           defaultValue={category?.description}
           className="mt-1.5"
+          aria-invalid={!!errors.description}
+          aria-describedby={errors.description ? 'c-desc-error' : undefined}
         />
         {errors.description && (
-          <p className="mt-1 text-xs text-destructive">{errors.description}</p>
+          <p id="c-desc-error" className="mt-1 text-xs text-destructive">
+            {errors.description}
+          </p>
         )}
       </div>
       <DialogFooter>
@@ -245,12 +253,16 @@ function AdminCategories() {
         {data?.map((c) => (
           <Card key={c.id} className="shadow-[var(--shadow-soft)]">
             <CardContent className="flex items-center gap-4 p-4">
-              <img
-                src={c.image}
-                alt=""
-                loading="lazy"
-                className="h-16 w-14 shrink-0 rounded object-cover"
-              />
+              {c.image ? (
+                <img
+                  src={c.image}
+                  alt=""
+                  loading="lazy"
+                  className="h-16 w-14 shrink-0 rounded object-cover"
+                />
+              ) : (
+                <div className="h-16 w-14 shrink-0 rounded bg-muted" />
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-display text-xl">{c.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
