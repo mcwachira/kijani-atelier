@@ -44,19 +44,23 @@ jobs:
           extensions: mbstring, pdo, pgsql
 
       - name: Copy .env
-        run: cp apps/backend/.env.example apps/backend/.env
+        run: cp apps/backend/.env.testing apps/backend/.env
 
       - name: Install dependencies
         working-directory: apps/backend
         run: composer install --no-progress --prefer-dist
 
-      - name: Generate key
+      - name: Generate app key
         working-directory: apps/backend
         run: php artisan key:generate
 
+      - name: Set correct permissions (optional but safe)
+        working-directory: apps/backend
+        run: chmod -R 777 storage bootstrap/cache
+
       - name: Run migrations
         working-directory: apps/backend
-        run: php artisan migrate
+        run: php artisan migrate --force
 
       - name: Run tests
         working-directory: apps/backend
