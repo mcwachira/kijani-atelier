@@ -17,6 +17,13 @@ jobs:
   # 🧪 FIRST JOB → Runs tests
   laravel-tests:
     runs-on: ubuntu-latest
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: test_db
+      DB_USERNAME: test_user
+      DB_PASSWORD: secret
 
     services:
       postgres:
