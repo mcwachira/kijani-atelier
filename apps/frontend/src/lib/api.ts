@@ -17,15 +17,214 @@ import type {
 } from '@/types'
 import { categories, messages, orders, products, reviews } from './mock-data'
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
 
+
+// Base URL for every API call. Falls back to localhost:8080 (our Docker
+// Nginx port from Phase 0) if VITE_API_BASE_URL isn't set in .env.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1'
+
+// Token storage: localStorage persists across page reloads/browser
+// restarts (so the user stays logged in), while the module-level
+// `authToken` variable avoids re-reading localStorage on every request.
+// TRADE-OFF: localStorage is readable by any JS running on the page,
+// including injected via XSS — this is the "bearer token vs cookie mode"
+// trade-off discussed above, made concrete in actual code.
+let authToken: string | null =
+  typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+
+
+
+// Called right after login/register succeeds, and again on logout (with
+// null) to clear the token. Every future apiFetch() call reads `authToken`
+// from module state — this is the ONE place that state gets written.
+export function setAuthToken(token:string |null){
+  authToken = token
+
+  // Same SSR guard as above — setAuthToken could theoretically run during
+  // server-side code too, so never touch localStorage without checking.
+  if (typeof window === 'undefined') return
+  if (token) {
+    localStorage.setItem('auth_token', token)
+  } else {
+    localStorage.removeItem('auth_token')
+  }
+}
+
+export function getAuthToken(){
+  return authToken;
+}
+
+
+// A real Error subclass (not a plain object) so it works naturally with
+// try/catch, error boundaries, and TanStack Query's built-in error typing.
+// `errors` carries Laravel's field-level validation messages (e.g.
+// { email: ["already taken"] }) for forms that need per-field feedback;
+// `message` is always a plain string, safe to hand straight to toast.error().
+export class ApiError extends Error {
+  errors?: Record<string, string[]>
+  status: number
+
+  constructor(
+    message: string,
+    status: number,
+    errors?: Record<string, string[]>,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.errors = errors
+  }
+}
+
+
+// The single function every API call goes through. Centralizing this means
+// "attach the auth header," "parse JSON," and "turn failures into a
+// consistent error shape" only need to be written once, not repeated in
+// every individual endpoint function below.
+async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    // Accept: application/json is important — without it, Laravel may
+    // respond with an HTML error page instead of JSON for certain errors,
+    // which would break this function's response.json() call below.
+    Accept: 'application/json',
+    ...options.headers,
+  }
+  // Attach the bearer token to every authenticated request automatically —
+  // callers of authApi.me(), authApi.logout(), etc. never have to
+  // remember to add this header themselves.
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {...options, headers})
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    // Laravel's error responses are shaped { message, errors? }. We
+    // convert that JSON into a real ApiError so every caller handles
+    // failures the same way, whether the failure was validation (422),
+    // wrong credentials (422), or an unverified email blocking access (403)
+    throw new ApiError(
+      data.message ?? 'Something went Wrong. please Try again.',
+      response.status,
+      data.error,
+    )
+  }
+
+  return data as T
+}
+
+// --- One function per endpoint. Each just calls apiFetch with the right
+// path/method/body — all the shared logic (auth header, error handling)
+// lives in apiFetch above, not repeated here. ---
+
+export function register(data:{
+  name:string
+  email:string
+  password:string
+  password_confirmation:string
+}){
+  return apiFetch<{ message: string; user: User; token: string }>(
+    '/auth/register',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    },
+  )
+}
+
+
+
+export function login (data:{email:string; password:string}){
+  return apiFetch<{user:User; token:string}>('/auth/login', {
+    method:'POST',
+    body:JSON.stringify(data),
+  })
+}
+
+export function logout() {
+  return apiFetch<{ message: string }>('/auth/logout', { method: 'POST' })
+}
+
+export function me() {
+  return apiFetch<User>('/auth/me')
+}
+
+
+export function forgotPassword(email:string){
+  return apiFetch<{message:string}>('/auth/forgot-password', {
+    method:"POST",
+    body:JSON.stringify({email})
+  })
+}
+
+
+// The verify link carries 4 pieces from the email: id, hash, expires,
+// signature. All 4 must be forwarded to the backend exactly as received —
+// this is what lets Laravel's `signed` middleware confirm the link is
+// genuine and hasn't been tampered with or expired.
+export function verifyEmail(params: {
+  id: string
+  hash: string
+  expires: string
+  signature: string
+}) {
+  const query = new URLSearchParams({
+    expires: params.expires,
+    signature: params.signature,
+  })
+
+  return apiFetch<{ message: string }>(
+    `/auth/email/verify/${params.id}/${params.hash}?${query.toString()}`
+  )
+}
+
+// Takes 4 separate arguments (not one object) purely because that's how
+// the reset-password ROUTE currently calls it — matches its mutationFn
+// signature: (password: string) => resetPassword(token, email, password, password)
+export function resetPassword(
+  token:string,
+  email:string,
+  password:string,
+  passwordConfirmation:string
+){
+  return apiFetch<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      token,
+      email,
+      password,
+      password_confirmation: passwordConfirmation,
+    }),
+  })
+}
+
+export function resendVerification() {
+  return apiFetch<{ message: string }>('/auth/email/resend', { method: 'POST' })
+}
+
+// Grouped object too, since your register page already uses authApi.register
+export const authApi = {
+  register,
+  login,
+  logout,
+  me,
+  forgotPassword,
+  resetPassword,
+  resendVerification,
+  verifyEmail
+}
 export type CartLine = {
   product_id: number
   quantity: number
   size: string | null
 }
-
 /** Generic fetch helper used once the Laravel backend is wired up. */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -281,51 +480,51 @@ export function updateOrderStatus(input: {
 /* ----------------------------------- Auth ----------------------------------- */
 
 // POST /login
-export function login(credentials: {
-  email: string
-  password: string
-}): Promise<{ user: User; token: string }> {
-  return mock(
-    {
-      user: {
-        id: 1,
-        name: 'Wanjiru Kamau',
-        email: credentials.email,
-        role: 'customer' as const,
-      },
-      token: 'mock-token',
-    },
-    700,
-  )
-  // return request("/login", { method: "POST", body: JSON.stringify(credentials) });
-}
+// export function login(credentials: {
+//   email: string
+//   password: string
+// }): Promise<{ user: User; token: string }> {
+//   return mock(
+//     {
+//       user: {
+//         id: 1,
+//         name: 'Wanjiru Kamau',
+//         email: credentials.email,
+//         role: 'customer' as const,
+//       },
+//       token: 'mock-token',
+//     },
+//     700,
+//   )
+//   // return request("/login", { method: "POST", body: JSON.stringify(credentials) });
+// }
 
 // POST /register
-export function register(input: {
-  name: string
-  email: string
-  password: string
-}): Promise<{ user: User; token: string }> {
-  return mock(
-    {
-      user: {
-        id: 2,
-        name: input.name,
-        email: input.email,
-        role: 'customer' as const,
-      },
-      token: 'mock-token',
-    },
-    700,
-  )
-  // return request("/register", { method: "POST", body: JSON.stringify(input) });
-}
+// export function register(input: {
+//   name: string
+//   email: string
+//   password: string
+// }): Promise<{ user: User; token: string }> {
+//   return mock(
+//     {
+//       user: {
+//         id: 2,
+//         name: input.name,
+//         email: input.email,
+//         role: 'customer' as const,
+//       },
+//       token: 'mock-token',
+//     },
+//     700,
+//   )
+//   // return request("/register", { method: "POST", body: JSON.stringify(input) });
+// }
 
 // GET /user
-export function getUser(): Promise<User | null> {
-  return mock<User | null>(null, 150)
-  // return request<User>("/user");
-}
+// export function getUser(): Promise<User | null> {
+//   return mock<User | null>(null, 150)
+//   // return request<User>("/user");
+// }
 
 /* ---------------------------------- Admin ----------------------------------- */
 
@@ -640,54 +839,54 @@ export interface AuthMessage {
 }
 
 // POST /forgot-password
-export function forgotPassword(email: string): Promise<AuthMessage> {
-  return mock(
-    {
-      message: `If an account exists for ${email}, a reset link is on its way.`,
-    },
-    700,
-  )
-  // return request("/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
-}
+// export function forgotPassword(email: string): Promise<AuthMessage> {
+//   return mock(
+//     {
+//       message: `If an account exists for ${email}, a reset link is on its way.`,
+//     },
+//     700,
+//   )
+//   // return request("/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
+// }
 
 // POST /reset-password
-export function resetPassword(
-  token: string,
-  password: string,
-): Promise<AuthMessage> {
-  if (!token)
-    return Promise.reject(
-      new Error('This reset link is invalid or has expired.'),
-    )
-  return mock(
-    { message: 'Your password has been updated. You can sign in now.' },
-    700,
-  )
-  // return request("/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
-}
+// export function resetPassword(
+//   token: string,
+//   password: string,
+// ): Promise<AuthMessage> {
+//   if (!token)
+//     return Promise.reject(
+//       new Error('This reset link is invalid or has expired.'),
+//     )
+//   return mock(
+//     { message: 'Your password has been updated. You can sign in now.' },
+//     700,
+//   )
+//   // return request("/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
+// }
 
 // POST /email/verify
-export function verifyEmail(token?: string): Promise<AuthMessage> {
-  if (!token)
-    return Promise.reject(
-      new Error('This verification link is invalid or has expired.'),
-    )
-  return mock({ message: 'Your email address has been verified.' }, 700)
-  // return request("/email/verify", { method: "POST", body: JSON.stringify({ token }) });
-}
+// export function verifyEmail(token?: string): Promise<AuthMessage> {
+//   if (!token)
+//     return Promise.reject(
+//       new Error('This verification link is invalid or has expired.'),
+//     )
+//   return mock({ message: 'Your email address has been verified.' }, 700)
+//   // return request("/email/verify", { method: "POST", body: JSON.stringify({ token }) });
+// }
 
 // POST /email/verification-notification
-export function resendVerification(email?: string): Promise<AuthMessage> {
-  return mock(
-    {
-      message: email
-        ? `Verification email sent to ${email}.`
-        : 'Verification email sent.',
-    },
-    700,
-  )
-  // return request("/email/verification-notification", { method: "POST", body: JSON.stringify({ email }) });
-}
+// export function resendVerification(email?: string): Promise<AuthMessage> {
+//   return mock(
+//     {
+//       message: email
+//         ? `Verification email sent to ${email}.`
+//         : 'Verification email sent.',
+//     },
+//     700,
+//   )
+//   // return request("/email/verification-notification", { method: "POST", body: JSON.stringify({ email }) });
+// }
 
 /* --------------------------------- Wishlist --------------------------------- */
 
