@@ -5,7 +5,9 @@ import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { register } from '@/lib/api'
+import { authApi, setAuthToken } from '@/lib/api'
+import { useMemo, useState } from 'react'
+import { getPasswordStrength } from '#/lib/utils.ts'
 
 
 export const Route = createFileRoute('/register')({
@@ -27,17 +29,61 @@ export const Route = createFileRoute('/register')({
   component: RegisterPage,
 })
 
-function RegisterPage(){
+function RegisterPage() {
   const navigate = useNavigate()
+
+  const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
+
+  const strength = useMemo(() => getPasswordStrength(password), [password])
+
+  // Only show a mismatch warning once the user has actually started typing
+  // in the confirm field — otherwise it flashes red the instant they focus
+  // the first password field, before they've had a chance to confirm anything.
+  const showMismatch =
+    passwordConfirmation.length > 0 && password !== passwordConfirmation
+
+  const passwordsMatch =
+    passwordConfirmation.length > 0 && password === passwordConfirmation
+
   const mutation = useMutation({
-    mutationFn: register,
+    mutationFn: authApi.register,
     onSuccess: (res) => {
-      localStorage.setItem('kijani-auth', JSON.stringify({ user: res.user, token: res.token }))
-      toast.success('Account created -Karribu Kijani')
+      // Use setAuthToken from lib/api.ts, not a raw localStorage.setItem
+      // under a different key. This keeps the token in the SAME place
+      // apiFetch() reads from — every future authenticated call
+      // (authApi.me(), authApi.logout(), cart/order calls later) will
+      // automatically pick it up.
+      setAuthToken(res.token)
+
+      // Still worth keeping the full user object somewhere for the UI to
+      // read (name, email, verified status) — a separate, non-auth key is
+      // fine for that, since it's just display data, not the credential.
+      localStorage.setItem('kijani-user', JSON.stringify(res.user))
+
+      // Note: real app routes will require a VERIFIED email once Phase 2's
+      // `verified` middleware group is actually populated with routes.
+      // Right now this just goes home — revisit this once product/cart
+      // routes are gated, and consider routing to a "check your email"
+      // screen instead.
+      toast.success('Account created -Karibu Kijani!')
       navigate({ to: '/' })
     },
-    onError: () => {
-      toast.error("We couldn't create that account. Please try again.")
+    onError: (error: any) => {
+      //authApi throws Laravel's raw error body:{message:errors?}
+      // errors is keyed by field name — show the FIRST specific message
+      // if one exists, otherwise fall back to the generic message.
+
+      const fieldErrors = error?.errors as Record<string, string[]> | undefined
+
+      const firstFieldError = fieldErrors
+        ? Object.values(fieldErrors)[0]?.[0]
+        : undefined
+      toast.error(
+        firstFieldError ??
+          error?.message ??
+          "We couldn't create that account. Please try again.",
+      )
     },
   })
   return (
@@ -53,11 +99,20 @@ function RegisterPage(){
           className="mt-9 space-y-4"
           onSubmit={(e) => {
             e.preventDefault()
+
+            // Client-side guard: don't even hit the API if the passwords
+            // obviously don't match — saves a round trip and gives instant
+            // feedback rather than waiting on the backend's 422 response.
+            if (password !== passwordConfirmation) {
+              toast.error('Passwords do not match.')
+              return
+            }
             const form = new FormData(e.currentTarget)
             mutation.mutate({
               name: String(form.get('name')),
               email: String(form.get('email')),
-              password: String(form.get('password')),
+              password,
+              password_confirmation: passwordConfirmation,
             })
           }}
         >
@@ -84,7 +139,53 @@ function RegisterPage(){
               minLength={8}
               required
               className="mt-1.5"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
+
+          {/*  Strength meter - will only render once the user has started to type something*/}
+            {password.length > 0 &&(
+              <div className="mt-2">
+                <div className="flex gap-1">
+                  {[0,1,2,3,4].map((i) => (
+                    <div key={i} className={`h-1 rounded-full transition-colors ${i < strength.score ? strength.color : 'bg-muted'}`}
+
+                    />
+                  ))}
+                </div>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {strength.label}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="password_confirmation">Confirm password</Label>
+            <Input
+              id="password_confirmation"
+              name="password_confirmation"
+              type="password"
+              minLength={8}
+              required
+              className="mt-1.5"
+              value={passwordConfirmation}
+              onChange={(e) => setPasswordConfirmation(e.target.value)}
+              aria-invalid={showMismatch}
+            />
+
+            {showMismatch && (
+              <p className="mt-1.5 text-xs text-red-600">
+                Passwords don't match.
+              </p>
+            )}
+            {passwordsMatch && (
+              <p className="mt-1.5 text-xs text-green-600">
+                Passwords match.
+              </p>
+            )}
+
           </div>
           <Button
             type="submit"
