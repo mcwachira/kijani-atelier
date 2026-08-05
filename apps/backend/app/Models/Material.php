@@ -10,8 +10,8 @@ class Material extends Model
 {
     protected $fillable = ['name'];
 
-    public function products():BelongsToMany
+    public function products(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class);
+        return $this->belongsToMany(Product::class, 'product_material');
     }
 }
