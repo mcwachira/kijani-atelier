@@ -9,6 +9,7 @@ import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import type { ApiError } from '@/lib/api';
 import { resetPassword } from '@/lib/api'
 
 const RULES = [
@@ -18,6 +19,10 @@ const RULES = [
   { label: 'One number', test: (v: string) => /\d/.test(v) },
 ] as const
 
+
+// Client-side validation mirrors (doesn't replace) the backend's rules.
+// Catching an obviously-invalid password here means an instant error
+// instead of a round trip to the API just to get told the same thing.
 const schema = z
   .object({
     password: z
@@ -38,9 +43,13 @@ const schema = z
   })
 
 export const Route = createFileRoute('/reset-password')({
+  // Reads ?token=...&email=... from the URL — this is EXACTLY what
+  // AppServiceProvider's ResetPassword::createUrlUsing() generates on the
+  // backend, so the two sides must stay in sync. If you ever rename these
+  // query params on one side, rename them on the other too.
   validateSearch: (search: Record<string, unknown>) => ({
     token: typeof search.token === 'string' ? search.token : '',
-    email: typeof search.email === 'string' ? search.email : undefined,
+    email: typeof search.email === 'string' ? search.email : '',
   }),
   head: () => ({
     meta: [
@@ -68,13 +77,25 @@ function ResetPasswordPage() {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
 
+  // The backend REQUIRES email alongside token — Laravel's Password::reset
+  // can't look up which account to reset with only a token. If the link
+  // is missing either piece, it's not usable — treat it the same as an
+  // expired/invalid link rather than letting the user submit a request
+  // that's guaranteed to 422.
+  const linkIsUsable = Boolean(token) && Boolean(email)
+
   const mutation = useMutation({
-    mutationFn: (password: string) => resetPassword(token, password),
+    // password_confirmation is sent as the SAME value as password — safe
+    // here specifically because the zod schema above already enforces
+    // password === confirm before this ever fires, so there's no
+    // meaningful difference between sending `confirm` or `password` twice.
+    mutationFn: (password: string) =>
+      resetPassword(token, email, password, password),
     onSuccess: (res) => {
       toast.success(res.message)
       navigate({ to: '/login' })
     },
-    onError: (err: Error) =>
+    onError: (err: ApiError) =>
       toast.error(err.message || "We couldn't reset your password.", {
         description: 'Please try again in a moment.',
         action: { label: 'Retry', onClick: () => mutation.mutate(password) },
@@ -92,7 +113,7 @@ function ResetPasswordPage() {
             : "Choose a password you haven't used before."}
         </p>
 
-        {!token ? (
+        {!linkIsUsable ? (
           <div className="mt-9 rounded-lg border border-dashed border-border p-6 text-center">
             <p className="font-display text-xl">This link is invalid</p>
             <p className="mt-1 text-sm text-muted-foreground">
