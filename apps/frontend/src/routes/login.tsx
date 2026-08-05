@@ -6,7 +6,8 @@ import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { login } from '@/lib/api'
+import { login, setAuthToken, ApiError } from '@/lib/api'
+
 
 export const Route = createFileRoute('/login')({
   head: () => ({
@@ -31,13 +32,22 @@ function LoginPage() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (res) => {
-      localStorage.setItem('kijani-auth', JSON.stringify({ user: res.user, token: res.token }));
-      toast.success(`Welcome back, ${res.user.name.split(" ")[0]}.`);
-      navigate({ to: "/" });
+      // setAuthToken keeps the token in the SAME place apiFetch reads
+      // from — writing to a separate 'kijani-auth' key (the old code)
+      // meant every request after login would go out unauthenticated.
+      setAuthToken(res.token)
+      localStorage.setItem('kijani-user', JSON.stringify(res.user))
+      toast.success(`Welcome back, ${res.user.name.split(' ')[0]}.`)
+      navigate({ to: '/' })
     },
-    onError: () => toast.error("Those details didn't match. Try again."),
-  });
-
+    onError: (err: ApiError) => {
+      // The backend deliberately returns the SAME generic message whether
+      // the email doesn't exist or the password is wrong (see LoginRequest
+      // — no 'exists:users,email' rule). We just display err.message as-is
+      // rather than trying to guess which one failed.
+      toast.error(err.message || "Those details didn't match. Try again.")
+    },
+  })
   return (
     <StoreLayout>
       <div className="mx-auto flex max-w-md flex-col px-4 py-20 sm:px-6 lg:py-28">
@@ -52,7 +62,10 @@ function LoginPage() {
           onSubmit={(e) => {
             e.preventDefault();
             const form = new FormData(e.currentTarget);
-            mutation.mutate({ email: String(form.get("email")), password: String(form.get("password")) });
+            mutation.mutate({
+              email: String(form.get("email")),
+              password: String(form.get("password"))
+            });
           }}
         >
           <div>
@@ -69,9 +82,14 @@ function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          New here?{" "}
+          New here?{' '}
           <Link to="/register" className="text-foreground underline underline-offset-4">
             Create an account
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          <Link to="/forgot-password" className="underline underline-offset-4">
+            Forgot your password?
           </Link>
         </p>
       </div>

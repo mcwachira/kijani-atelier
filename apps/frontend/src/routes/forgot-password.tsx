@@ -7,6 +7,7 @@ import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import type { ApiError} from '@/lib/api';
 import { forgotPassword } from '@/lib/api'
 
 export const Route = createFileRoute('/forgot-password')({
@@ -31,13 +32,16 @@ export const Route = createFileRoute('/forgot-password')({
 })
 
 function ForgotPasswordPage() {
+  // useRef, not useState — we only need this value INSIDE the retry
+  // button's onClick handler, and don't need re-renders when it changes.
+  // A ref avoids an unnecessary render on every keystroke-adjacent update.
   const lastEmail = useRef('')
 
   const mutation = useMutation({
     mutationFn: forgotPassword,
     onSuccess: (res) => toast.success(res.message),
-    onError: () =>
-      toast.error("We couldn't send that reset link.", {
+    onError: (err: ApiError) =>
+      toast.error(err.message || "We couldn't send that reset link.", {
         description: 'Check your connection and try again.',
         action: {
           label: 'Retry',
@@ -56,6 +60,11 @@ function ForgotPasswordPage() {
         </p>
 
         {mutation.isSuccess ? (
+          // SECURITY NOTE: this success message is IDENTICAL whether the
+          // email exists in the database or not — the backend deliberately
+          // never reveals which. Don't be tempted to add a check here like
+          // "if email not found, show different message" — that would
+
           <div className="mt-9 rounded-lg border border-border bg-card p-6">
             <p className="text-sm">{mutation.data.message}</p>
             <Button asChild variant="outline" className="mt-5 w-full">
