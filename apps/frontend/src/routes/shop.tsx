@@ -6,10 +6,9 @@ import { StoreLayout } from '@/components/layout/StoreLayout'
 import { ProductGrid } from '@/features/products/ProductGrid'
 import {
   ProductFilters,
-  toQueryParams
-  
+  toQueryParams,
 } from '@/features/products/ProductFilters'
-import type {FilterState} from '@/features/products/ProductFilters';
+import type { FilterState } from '@/features/products/ProductFilters'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import {
@@ -28,7 +27,6 @@ import {
 import { productsQuery, MAX_PRICE } from '@/lib/queries'
 import type { Material, ProductQueryParams } from '@/types'
 
-
 type ShopSearch = {
   category?: string
   search?: string
@@ -36,8 +34,8 @@ type ShopSearch = {
   material?: Material
   min_price?: number
   max_price?: number
-  sort?:NonNullable<ProductQueryParams["sort"]>;
-  page?: number;
+  sort?: NonNullable<ProductQueryParams['sort']>
+  page?: number
 }
 
 export const Route = createFileRoute('/shop')({
@@ -45,34 +43,46 @@ export const Route = createFileRoute('/shop')({
     category: typeof raw.category === 'string' ? raw.category : undefined,
     search: typeof raw.search === 'string' ? raw.search : undefined,
     size: raw.size ? String(raw.size) : undefined,
-    material: (['leather', 'woven', 'beads', 'brass'] as const).includes(
-      raw.material as Material,
-    )
-      ? (raw.material as Material)
-      : undefined,
+    // Material is now a real, admin-editable list (see MaterialController)
+    // rather than a fixed set of 4 values — the old hardcoded
+    // ['leather','woven','beads','brass'].includes(...) check would
+    // silently reject any material an admin adds later (e.g. "raffia",
+    // which already exists in seeded data). Trust any non-empty string;
+    // the backend's own whereHas('materials', ...) filter simply returns
+    // zero results for a name that doesn't exist — no invalid-state risk
+    // from accepting it here.
+    material:
+      typeof raw.material === 'string' && raw.material.length > 0
+        ? raw.material
+        : undefined,
     min_price: Number(raw.min_price ?? 0),
     max_price: Number(raw.max_price ?? MAX_PRICE),
-    sort: (["newest", "price_asc", "price_desc"] as const).includes(raw.sort as never)
-      ? (raw.sort as ShopSearch["sort"])
-      : "newest",
+    sort: (['newest', 'price_asc', 'price_desc'] as const).includes(
+      raw.sort as never,
+    )
+      ? (raw.sort as ShopSearch['sort'])
+      : 'newest',
     page: Number(raw.page ?? 1),
   }),
-  head:() => ({
-    meta:[
-      { title: "Shop All — Sandals, Kiondos & Woven Bags | Kijani Atelier" },
+  head: () => ({
+    meta: [
+      { title: 'Shop All — Sandals, Kiondos & Woven Bags | Kijani Atelier' },
       {
-        name: "description",
+        name: 'description',
         content:
-          "Browse handmade leather sandals, beaded sandals, kiondos, woven handbags and accessories. Filter by category, price, size and material.",
+          'Browse handmade leather sandals, beaded sandals, kiondos, woven handbags and accessories. Filter by category, price, size and material.',
       },
-      { property: "og:title", content: "Shop All — Kijani Atelier" },
-      { property: "og:description", content: "Handcrafted sandals, kiondos and woven bags from Kenya." },
+      { property: 'og:title', content: 'Shop All — Kijani Atelier' },
+      {
+        property: 'og:description',
+        content: 'Handcrafted sandals, kiondos and woven bags from Kenya.',
+      },
     ],
   }),
-  component:ShopPage
+  component: ShopPage,
 })
 
-function ShopPage(){
+function ShopPage() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
 

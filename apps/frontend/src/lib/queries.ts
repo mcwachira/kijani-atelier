@@ -1,9 +1,16 @@
 import {queryOptions} from '@tanstack/react-query'
 import type {ProductQueryParams} from "@/types"
 import * as api from "./api"
+import { getMaterials } from './api'
 
 export const MAX_PRICE = 16000
 
+
+export const materialsQuery = () =>
+  queryOptions({
+    queryKey: ['materials'],
+    queryFn: getMaterials,
+  })
 export const productsQuery = (params:ProductQueryParams ={}) => queryOptions({queryKey:["products",params], queryFn:()=>api.getProducts(params)})
 
 export const productQuery = (id:number |string) => queryOptions({queryKey:["product", String(id)], queryFn:() => api.getProduct(id)})
