@@ -7,14 +7,12 @@ on:
       - dev
       - 'feature/**'
       - 'bugfix/**'
-
   pull_request:
-      branches:
-        - main
-        - dev
+    branches:
+      - main
+      - dev
 
 jobs:
-  # 🧪 FIRST JOB → Runs tests
   laravel-tests:
     runs-on: ubuntu-latest
     env:
@@ -24,7 +22,6 @@ jobs:
       DB_DATABASE: test_db
       DB_USERNAME: test_user
       DB_PASSWORD: secret
-
     services:
       postgres:
         image: postgres:16
@@ -39,50 +36,38 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: 8.4
           extensions: mbstring, pdo, pgsql
-
-      - name: Copy .env
-        run: cp apps/backend/.env.testing apps/backend/.env
-
+      - name: Prepare env file
+        working-directory: apps/backend
+        run: cp .env.example .env
       - name: Install dependencies
         working-directory: apps/backend
         run: composer install --no-progress --prefer-dist
-
       - name: Generate app key
         working-directory: apps/backend
         run: php artisan key:generate
-
-      - name: Set correct permissions (optional but safe)
+      - name: Set correct permissions
         working-directory: apps/backend
-        run: chmod -R 777 storage bootstrap/cache
-
+        run: chmod -R 775 storage bootstrap/cache
       - name: Run migrations
         working-directory: apps/backend
         run: php artisan migrate --force
-
       - name: Run tests
         working-directory: apps/backend
-        run: php artisan test
+        run: php artisan test --env=testing
 
-  # 🐳 SECOND JOB → Build Docker
   docker-build:
     runs-on: ubuntu-latest
-
-    # 👇 THIS IS KEY → runs only if tests pass
     needs: laravel-tests
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Build Docker image
         run: docker build -f docker/php/Dockerfile -t kijani-app .

@@ -1,4 +1,12 @@
-export type Material = 'leather' | 'woven' | 'beads' | 'brass'
+// Material used to be a fixed union (leather | woven | beads | brass),
+// which matched the old mock data exactly. It's now a real, admin-
+// editable table (MaterialController lets admins add new ones — see
+// admin.categories-style CRUD), so a hardcoded union would silently break
+// the moment someone adds a material through the admin UI that isn't in
+// this list (e.g. "raffia", which is actually in your seeded data).
+// Plain `string` matches the backend's actual behavior: any material name
+// is valid, the set is open-ended and DB-driven, not compile-time-fixed.
+export type Material = string
 
 export interface Category {
   id: number
@@ -27,7 +35,7 @@ export interface Product {
   category: Category
   description: string
   craft_note: string
-  materials: Material[]
+  materials: Material[] // now string[] under the hood, since Material = string
   sizes: string[]
   images: string[]
   stock: number
@@ -44,6 +52,10 @@ export interface Paginated<T> {
     last_page: number
     per_page: number
     total: number
+    // Laravel's real paginator also includes from/to/path/links — not
+    // typed here since nothing currently reads them, but they DO exist
+    // on the real response if you need them later. TypeScript won't
+    // complain about the extra untyped fields being present at runtime.
   }
 }
 
@@ -53,7 +65,7 @@ export interface ProductQueryParams {
   min_price?: number
   max_price?: number
   size?: string
-  material?: Material
+  material?: Material // now effectively `string` — see Material above
   sort?: 'newest' | 'price_asc' | 'price_desc'
   page?: number
   per_page?: number

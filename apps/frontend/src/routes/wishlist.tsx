@@ -104,7 +104,7 @@ function WishlistPage(){
               >
                 <Link
                   to="/products/$productId"
-                  params={{ productId: String(item.product.id) }}
+                  params={{ productId:item.product.slug }}
                 >
                   <img
                     src={item.product.images[0]}
