@@ -18,6 +18,39 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+
+/**
+ * Creates a real admin user and returns [user, bearerToken] — used by
+ * every write-endpoint test that needs to authenticate as an admin.
+ * Centralized here so the "role isn't mass-assignable, must forceFill"
+ * rule (see UserSeeder) is only written once, not copy-pasted into every
+ * test file.
+ */
+
+function actingAsAdmin():array
+{
+    $admin = \App\Models\User::factory()->create();
+    $admin -> forceFill(['role' => 'admin'])->save();
+
+    $token = $admin-> createToken('text-token')->plainTextToken;
+
+    return [$admin, $token];
+}
+
+/**
+ * Same idea, but for an ordinary customer — used by tests proving that a
+ * logged-in-but-non-admin user still gets a 403 on admin-only routes.
+ */
+
+function actingAsCustomer():array
+{
+    $customer = \App\Models\User::factory()->create();
+    $token = $customer-> createToken('text-token')->plainTextToken;
+
+    return [$customer, $token];
+}
+
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { categoriesQuery, MAX_PRICE } from '@/lib/queries'
+import { categoriesQuery, materialsQuery, MAX_PRICE } from '@/lib/queries'
 import type { Material, ProductQueryParams } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -9,7 +9,11 @@ import { formatKes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const SIZES = ['36', '37', '38', '39', '40', '41']
-const MATERIALS: Material[] = ['leather', 'woven', 'beads', 'brass']
+
+// MATERIALS constant removed — materials are now a real, admin-editable
+// table (see MaterialController), fetched live below via materialsQuery()
+// instead of hardcoded. This means a material an admin adds later (e.g.
+// "raffia") shows up here automatically without a frontend code change.
 
 export interface FilterState {
   category?: string
@@ -28,6 +32,8 @@ export function ProductFilters({
   onReset: () => void
 }) {
   const { data: categories } = useQuery(categoriesQuery())
+  // Fetches the real material list from GET /materials.
+  const { data: materials } = useQuery(materialsQuery())
 
   const chip = (active: boolean) =>
     cn(
@@ -52,8 +58,14 @@ export function ProductFilters({
       </div>
 
       <div>
-        <Label className="eyebrow" id="filter-category">Category</Label>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-labelledby="filter-category">
+        <Label className="eyebrow" id="filter-category">
+          Category
+        </Label>
+        <div
+          className="mt-3 flex flex-wrap gap-2"
+          role="group"
+          aria-labelledby="filter-category"
+        >
           <button
             type="button"
             className={chip(!value.category)}
@@ -79,7 +91,9 @@ export function ProductFilters({
       <Separator />
 
       <div>
-        <Label className="eyebrow" id="filter-price">Price</Label>
+        <Label className="eyebrow" id="filter-price">
+          Price
+        </Label>
         <Slider
           className="mt-5"
           min={0}
@@ -100,8 +114,14 @@ export function ProductFilters({
       <Separator />
 
       <div>
-        <Label className="eyebrow" id="filter-size">Size (sandals)</Label>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-labelledby="filter-size">
+        <Label className="eyebrow" id="filter-size">
+          Size (sandals)
+        </Label>
+        <div
+          className="mt-3 flex flex-wrap gap-2"
+          role="group"
+          aria-labelledby="filter-size"
+        >
           {SIZES.map((s) => (
             <button
               key={s}
@@ -121,19 +141,31 @@ export function ProductFilters({
       <Separator />
 
       <div>
-        <Label className="eyebrow" id="filter-material">Material</Label>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-labelledby="filter-material">
-          {MATERIALS.map((m) => (
+        <Label className="eyebrow" id="filter-material">
+          Material
+        </Label>
+        <div
+          className="mt-3 flex flex-wrap gap-2"
+          role="group"
+          aria-labelledby="filter-material"
+        >
+          {/* materials?.map — each item is { id, name } from GET /materials,
+              matches MaterialResource's shape exactly (see lib/api.ts's
+              getMaterials()). Filter by name, since that's what
+              ProductController's ?material= query param matches against. */}
+          {materials?.map((m) => (
             <button
-              key={m}
+              key={m.id}
               type="button"
-              className={cn(chip(value.material === m), 'capitalize')}
-              aria-pressed={value.material === m}
+              className={cn(chip(value.material === m.name), 'capitalize')}
+              aria-pressed={value.material === m.name}
               onClick={() =>
-                onChange({ material: value.material === m ? undefined : m })
+                onChange({
+                  material: value.material === m.name ? undefined : m.name,
+                })
               }
             >
-              {m}
+              {m.name}
             </button>
           ))}
         </div>

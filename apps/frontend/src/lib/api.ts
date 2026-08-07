@@ -15,7 +15,7 @@ import type {
   SalesAnalytics,
   User,
 } from '@/types'
-import { categories, messages, orders, products, reviews } from './mock-data'
+import {  messages, orders, products, reviews } from './mock-data'
 
 
 
@@ -243,70 +243,70 @@ const mock = <T>(value: T, delay = 350): Promise<T> =>
 /* ---------------------------------- Catalog --------------------------------- */
 
 // GET /products
+// Maps directly onto ProductController::index()'s query params — category
+// is a SLUG (not an id), material is a NAME, size is a VALUE, matching
+// exactly what the backend's whereHas() filters expect.
 export function getProducts(
   params: ProductQueryParams = {},
 ): Promise<Paginated<Product>> {
-  const perPage = params.per_page ?? 9
-  let list = [...products]
 
-  if (params.search) {
-    const q = params.search.toLowerCase()
-    list = list.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.category.name.toLowerCase().includes(q),
-    )
-  }
-  if (params.category)
-    list = list.filter((p) => p.category.slug === params.category)
-  if (params.min_price != null)
-    list = list.filter((p) => p.price >= params.min_price!)
-  if (params.max_price != null)
-    list = list.filter((p) => p.price <= params.max_price!)
-  if (params.size) list = list.filter((p) => p.sizes.includes(params.size!))
-  if (params.material)
-    list = list.filter((p) => p.materials.includes(params.material!))
-  if (params.featured) list = list.filter((p) => p.is_new)
+  const query = new URLSearchParams()
+  if(params.search) query.set('search', params.search)
+  if(params.category) query.set('category', params.category)
+  if(params.material) query.set('material', params.material)
+  if(params.size) query.set('size', params.size)
+  if(params.min_price != null) query.set('min_price', String(params.min_price))
+  if(params.max_price ) query.set('max_price', String(params.max_price))
+  if(params.featured) query.set('is_new', 'true')
+  if(params.sort) query.set('sort', params.sort)
+  if(params.page) query.set('page', String(params.page))
+  if(params.per_page) query.set('per_page', String(params.per_page))
 
-  if (params.sort === 'price_asc') list.sort((a, b) => a.price - b.price)
-  else if (params.sort === 'price_desc') list.sort((a, b) => b.price - a.price)
-  else if (params.sort === 'newest')
-    list.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))
-
-  const page = params.page ?? 1
-  const total = list.length
-  return mock({
-    data: list.slice((page - 1) * perPage, page * perPage),
-    meta: {
-      current_page: page,
-      last_page: Math.max(1, Math.ceil(total / perPage)),
-      per_page: perPage,
-      total,
-    },
-  })
-  // return request<Paginated<Product>>(`/products?${new URLSearchParams(params as never)}`);
+  return apiFetch<Paginated<Product>>(`/products?${query.toString()}`);
 }
 
-// GET /products/{id}
-export function getProduct(id: number | string): Promise<Product> {
-  const found = products.find((p) => p.id === Number(id))
-  if (!found) return Promise.reject(new Error('Product not found'))
-  return mock(found)
-  // return request<Product>(`/products/${id}`);
+
+// GET /products/{slug}
+// The backend looks products up by SLUG, not numeric id — matches how
+// product detail pages are routed. If you're calling this with a numeric
+// id somewhere, that call site needs to pass the product's slug instead.
+export function getProduct(slug: string): Promise<Product> {
+  return apiFetch<Product>(`/products/${slug}`)
 }
+
 
 // GET /categories
 export function getCategories(): Promise<Category[]> {
-  return mock(categories)
-  // return request<Category[]>("/categories");
+   return apiFetch<{data:Category[]}>('/categories').then((res) => res.data)
+
+  }
+
+
+// GET /categories/{slug}
+export function getCategory(slug: string): Promise<Category> {
+  return apiFetch<{ data: Category }>(`/categories/${slug}`).then((res) => res.data)
 }
 
+
+// GET /materials —  building material-filter checkboxes/facets on the catalog page.
+export function getMaterials(): Promise<{ id: number; name: string }[]> {
+  return apiFetch<{ data: { id: number; name: string }[] }>('/materials').then((res) => res.data)
+}
+
+
+
+// GET /sizes — same idea, for size-filter facets.
+export function getSizes(): Promise<{ id: number; value: string }[]> {
+  return apiFetch<{ data: { id: number; value: string }[] }>('/sizes').then((res) => res.data)
+}
+
+// --- Reviews: NOT a real backend endpoint yet — still mocked ---
 // GET /products/{id}/reviews
 export function getReviews(productId: number | string): Promise<Review[]> {
   return mock(reviews.filter((r) => r.product_id === Number(productId)))
-  // return request<Review[]>(`/products/${productId}/reviews`);
+  // Real implementation once the Reviews API is built:
+  // return apiFetch<{ data: Review[] }>(`/products/${productId}/reviews`).then(res => res.data)
 }
-
 // POST /products/{id}/reviews
 export function createReview(input: {
   product_id: number
@@ -477,54 +477,7 @@ export function updateOrderStatus(input: {
   // return request<Order>(`/admin/orders/${input.id}/status`, { method: "PATCH", body: JSON.stringify(input) });
 }
 
-/* ----------------------------------- Auth ----------------------------------- */
 
-// POST /login
-// export function login(credentials: {
-//   email: string
-//   password: string
-// }): Promise<{ user: User; token: string }> {
-//   return mock(
-//     {
-//       user: {
-//         id: 1,
-//         name: 'Wanjiru Kamau',
-//         email: credentials.email,
-//         role: 'customer' as const,
-//       },
-//       token: 'mock-token',
-//     },
-//     700,
-//   )
-//   // return request("/login", { method: "POST", body: JSON.stringify(credentials) });
-// }
-
-// POST /register
-// export function register(input: {
-//   name: string
-//   email: string
-//   password: string
-// }): Promise<{ user: User; token: string }> {
-//   return mock(
-//     {
-//       user: {
-//         id: 2,
-//         name: input.name,
-//         email: input.email,
-//         role: 'customer' as const,
-//       },
-//       token: 'mock-token',
-//     },
-//     700,
-//   )
-//   // return request("/register", { method: "POST", body: JSON.stringify(input) });
-// }
-
-// GET /user
-// export function getUser(): Promise<User | null> {
-//   return mock<User | null>(null, 150)
-//   // return request<User>("/user");
-// }
 
 /* ---------------------------------- Admin ----------------------------------- */
 
@@ -687,149 +640,80 @@ export function markMessageRead(id: number): Promise<Message> {
 
 /* ------------------------------ Admin: catalog ------------------------------ */
 
-export interface ProductInput {
-  name: string
-  price: number
-  stock: number
-  category: string
-  description: string
-}
+
 
 export interface CategoryInput {
   name: string
   slug: string
   description?: string
+  image?: string
 }
 
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
 
-// POST /admin/products
-export function createProduct(input: ProductInput): Promise<Product> {
-  const category = categories.find((c) => c.slug === input.category)
-  if (!category) return Promise.reject(new Error('Unknown category'))
-  const product: Product = {
-    id: Math.max(0, ...products.map((p) => p.id)) + 1,
-    name: input.name,
-    slug: slugify(input.name),
-    price: input.price,
-    compare_at_price: null,
-    category,
-    description: input.description,
-    craft_note: 'Handmade in small batches by our artisan partners.',
-    materials: ['leather'],
-    sizes: [],
-    images: [category.image, category.image, category.image],
-    stock: input.stock,
-    rating: 0,
-    reviews_count: 0,
-    is_new: true,
-    created_at: new Date().toISOString(),
-  }
-  products.unshift(product)
-  category.products_count += 1
-  return mock(product, 600)
-  // return request<Product>("/admin/products", { method: "POST", body: JSON.stringify(input) });
-}
-
-// PUT /admin/products/{id}
-export function updateProduct(
-  id: number,
-  input: ProductInput,
-): Promise<Product> {
-  const index = products.findIndex((p) => p.id === id)
-  const category = categories.find((c) => c.slug === input.category)
-  if (index === -1 || !category)
-    return Promise.reject(new Error('Product not found'))
-  const previous = products[index]
-  if (previous.category.id !== category.id) {
-    previous.category.products_count = Math.max(
-      0,
-      previous.category.products_count - 1,
-    )
-    category.products_count += 1
-  }
-  const next: Product = {
-    ...previous,
-    name: input.name,
-    slug: slugify(input.name),
-    price: input.price,
-    stock: input.stock,
-    description: input.description,
-    category,
-  }
-  products[index] = next
-  return mock(next, 600)
-  // return request<Product>(`/admin/products/${id}`, { method: "PUT", body: JSON.stringify(input) });
-}
-
-// DELETE /admin/products/{id}
-export function deleteProduct(id: number): Promise<{ id: number }> {
-  const index = products.findIndex((p) => p.id === id)
-  if (index === -1) return Promise.reject(new Error('Product not found'))
-  products[index].category.products_count = Math.max(
-    0,
-    products[index].category.products_count - 1,
-  )
-  products.splice(index, 1)
-  return mock({ id }, 500)
-  // return request(`/admin/products/${id}`, { method: "DELETE" });
-}
-
-// POST /admin/categories
+// POST /categories
 export function createCategory(input: CategoryInput): Promise<Category> {
-  const slug = slugify(input.slug || input.name)
-  if (categories.some((c) => c.slug === slug))
-    return Promise.reject(new Error('A category with that slug already exists'))
-  const category: Category = {
-    id: Math.max(0, ...categories.map((c) => c.id)) + 1,
-    name: input.name,
-    slug,
-    description: input.description || 'A new collection.',
-    image: categories[0]?.image ?? '',
-    products_count: 0,
-  }
-  categories.push(category)
-  return mock(category, 600)
-  // return request<Category>("/admin/categories", { method: "POST", body: JSON.stringify(input) });
+  return apiFetch<{ data: Category }>('/categories', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }).then((res) => res.data)
 }
 
-// PUT /admin/categories/{id}
-export function updateCategory(
-  id: number,
-  input: CategoryInput,
-): Promise<Category> {
-  const index = categories.findIndex((c) => c.id === id)
-  if (index === -1) return Promise.reject(new Error('Category not found'))
-  const slug = slugify(input.slug || input.name)
-  if (categories.some((c) => c.slug === slug && c.id !== id))
-    return Promise.reject(new Error('A category with that slug already exists'))
-  const next: Category = {
-    ...categories[index],
-    name: input.name,
-    slug,
-    description: input.description || categories[index].description,
-  }
-  categories[index] = next
-  return mock(next, 600)
-  // return request<Category>(`/admin/categories/${id}`, { method: "PUT", body: JSON.stringify(input) });
+// PUT /categories/{category}  — {category} is the numeric id here, NOT the
+// slug. Public reads use slug (GET /categories/{slug}), but admin writes
+// use the route-model-bound numeric id, matching CategoryController::update.
+export function updateCategory(id: number, input: CategoryInput): Promise<Category> {
+  return apiFetch<{ data: Category }>(`/categories/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  }).then((res) => res.data)
 }
 
-// DELETE /admin/categories/{id}
-export function deleteCategory(id: number): Promise<{ id: number }> {
-  const index = categories.findIndex((c) => c.id === id)
-  if (index === -1) return Promise.reject(new Error('Category not found'))
-  if (products.some((p) => p.category.id === id))
-    return Promise.reject(
-      new Error('Remove the products in this collection first'),
-    )
-  categories.splice(index, 1)
-  return mock({ id }, 500)
-  // return request(`/admin/categories/${id}`, { method: "DELETE" });
+// DELETE /categories/{category}
+// IMPORTANT BEHAVIOR CHANGE from the old mock: the backend CASCADES this
+// delete — every product in this category is deleted too (see the
+// products table's cascadeOnDelete on category_id). The old mock used to
+// block deletion if products existed; the real API does not. The
+// AdminCategories confirmation dialog copy below has been updated to
+// reflect this — don't revert that wording without also changing the
+// backend's delete behavior.
+export function deleteCategory(id: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/categories/${id}`, { method: 'DELETE' })
+}
+
+
+
+// Matches StoreProductRequest/UpdateProductRequest exactly — notably
+// category_id (a number), NOT a category slug like the old mock used.
+// materials/sizes are optional arrays of EXISTING material/size ids.
+export interface ProductInput {
+  name: string
+  price: number
+  stock: number
+  category_id: number
+  description?: string
+  materials?: number[]
+  sizes?: number[]
+}
+
+// POST /products
+export function createProduct(input: ProductInput): Promise<Product> {
+  return apiFetch<{ data: Product }>('/products', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }).then((res) => res.data)
+}
+
+// PUT /products/{product} — partial update; only send fields that changed.
+export function updateProduct(id: number, input: Partial<ProductInput>): Promise<Product> {
+  return apiFetch<{ data: Product }>(`/products/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  }).then((res) => res.data)
+}
+
+// DELETE /products/{product}
+export function deleteProduct(id: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/products/${id}`, { method: 'DELETE' })
 }
 
 /* ------------------------------ Account access ------------------------------ */
@@ -838,55 +722,7 @@ export interface AuthMessage {
   message: string
 }
 
-// POST /forgot-password
-// export function forgotPassword(email: string): Promise<AuthMessage> {
-//   return mock(
-//     {
-//       message: `If an account exists for ${email}, a reset link is on its way.`,
-//     },
-//     700,
-//   )
-//   // return request("/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
-// }
 
-// POST /reset-password
-// export function resetPassword(
-//   token: string,
-//   password: string,
-// ): Promise<AuthMessage> {
-//   if (!token)
-//     return Promise.reject(
-//       new Error('This reset link is invalid or has expired.'),
-//     )
-//   return mock(
-//     { message: 'Your password has been updated. You can sign in now.' },
-//     700,
-//   )
-//   // return request("/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
-// }
-
-// POST /email/verify
-// export function verifyEmail(token?: string): Promise<AuthMessage> {
-//   if (!token)
-//     return Promise.reject(
-//       new Error('This verification link is invalid or has expired.'),
-//     )
-//   return mock({ message: 'Your email address has been verified.' }, 700)
-//   // return request("/email/verify", { method: "POST", body: JSON.stringify({ token }) });
-// }
-
-// POST /email/verification-notification
-// export function resendVerification(email?: string): Promise<AuthMessage> {
-//   return mock(
-//     {
-//       message: email
-//         ? `Verification email sent to ${email}.`
-//         : 'Verification email sent.',
-//     },
-//     700,
-//   )
-//   // return request("/email/verification-notification", { method: "POST", body: JSON.stringify({ email }) });
-// }
 
 /* --------------------------------- Wishlist --------------------------------- */
 

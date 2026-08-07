@@ -3,6 +3,10 @@
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
 use App\Http\Controllers\Api\Auth\VerificationController;
+use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\MaterialController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\SizeController;
 use Illuminate\Support\Facades\Route;
 
 // prefix('v1') — every URL becomes /api/v1/... . Versioning from the very
@@ -43,11 +47,39 @@ Route::prefix('v1')->group(function () {
         });
     });
 
-    // Requires BOTH a valid token AND a verified email. Real app routes —
-    // products, cart, orders — get registered inside this group starting
-    // in the next phase, so unverified accounts can browse nothing yet.
-    Route::middleware(['auth:sanctum', 'verified'])->group(function () {
-        //
+
+    // ---------------------------------------------------------------
+    // Catalog — PUBLIC reads. Anyone can browse categories/materials/
+    // sizes/products without an account, exactly like any storefront.
+    // ---------------------------------------------------------------
+    Route::get('/categories', [CategoryController::class, 'index']);
+    Route::get('/categories/{slug}', [CategoryController::class, 'show']);
+
+    Route::get('/materials', [MaterialController::class, 'index']);
+    Route::get('/sizes', [SizeController::class, 'index']);
+
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/{slug}', [ProductController::class, 'show']);
+
+    // ---------------------------------------------------------------
+    // Catalog management — ADMIN ONLY. Both 'auth:sanctum' (must be
+    // logged in) and 'admin' (must specifically be role=admin) are
+    // required — a logged-in customer token still gets a 403 here.
+    // ---------------------------------------------------------------
+    Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+        Route::post('/categories', [CategoryController::class, 'store']);
+        Route::put('/categories/{category}', [CategoryController::class, 'update']);
+        Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
+
+        Route::post('/materials', [MaterialController::class, 'store']);
+        Route::delete('/materials/{material}', [MaterialController::class, 'destroy']);
+
+        Route::post('/sizes', [SizeController::class, 'store']);
+        Route::delete('/sizes/{size}', [SizeController::class, 'destroy']);
+
+        Route::post('/products', [ProductController::class, 'store']);
+        Route::put('/products/{product}', [ProductController::class, 'update']);
+        Route::delete('/products/{product}', [ProductController::class, 'destroy']);
     });
 
 });
