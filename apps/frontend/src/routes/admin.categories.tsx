@@ -325,8 +325,12 @@ function AdminCategories() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {deleting?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Collections with products can't be removed until those pieces are
-              moved or deleted.
+              {/* Backend cascades this delete — every product in this category is
+        deleted too, not just blocked (see CategoryController::destroy).
+        This copy was updated to reflect that; don't soften it back to
+        "products must be moved first" unless the backend behavior changes too. */}
+              This will also permanently delete every product in this
+              collection. This action can't be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
