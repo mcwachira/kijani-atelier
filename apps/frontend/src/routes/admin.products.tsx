@@ -47,11 +47,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { categoriesQuery, productsQuery } from '@/lib/queries'
-import {
-  createProduct,
-  deleteProduct,
-  updateProduct,
-} from '@/lib/api'
+import { createProduct, deleteProduct, updateProduct } from '@/lib/api'
 import type { ProductInput } from '@/lib/api'
 import { zodFieldErrors } from '@/lib/utils'
 import { formatKes } from '@/lib/format'
@@ -73,21 +69,25 @@ export const Route = createFileRoute('/admin/products')({
   component: AdminProducts,
 })
 
+// NOTE: category is now validated as a numeric id (category_id on the
+// backend), not a slug string like before. The Select below stores it as
+// a STRING internally (shadcn's Select only works with string values),
+// then we Number()-convert right before validation/submission.
 const productSchema = z.object({
   name: z
     .string()
     .trim()
     .min(2, 'Name must be at least 2 characters.')
     .max(80, 'Name must be under 80 characters.'),
-  price: z
-    .number()
-    .positive('Price must be greater than zero.')
-    .max(1_000_000),
+  price: z.number().positive('Price must be greater than zero.').max(1_000_000),
   stock: z
     .number({ error: 'Stock must be a whole number.' })
     .int('Stock must be a whole number.')
     .min(0, 'Stock cannot be negative.'),
-  category: z.string().min(1, 'Choose a category.'),
+  category_id: z
+    .number({ error: 'Choose a category.' })
+    .int()
+    .positive('Choose a category.'),
   description: z
     .string()
     .trim()
@@ -107,13 +107,22 @@ function ProductForm({
   const queryClient = useQueryClient()
   const { data: categories, isLoading: loadingCategories } =
     useQuery(categoriesQuery())
-  const [category, setCategory] = useState(product?.category.slug ?? '')
+
+  // Stored as a STRING (Select's requirement), even though it represents
+  // a numeric category id underneath — converted with Number() at submit.
+  const [categoryId, setCategoryId] = useState<string>(
+    product?.category.id ? String(product.category.id) : '',
+  )
   const [errors, setErrors] = useState<FieldErrors>({})
 
+  // Once categories load, default to the product's own category (when
+  // editing) or the first available category (when creating) — mirrors
+  // the old slug-based version's behavior, just keyed on id now.
   useEffect(() => {
-    if (!category && categories?.length)
-      setCategory(product?.category.slug ?? categories[0].slug)
-  }, [categories, category, product])
+    if (!categoryId && categories?.length) {
+      setCategoryId(String(product?.category.id ?? categories[0].id))
+    }
+  }, [categories, categoryId, product])
 
   const mutation = useMutation({
     mutationFn: (input: ProductInput) =>
@@ -132,9 +141,12 @@ function ProductForm({
     const parsed = productSchema.safeParse({
       name: String(form.get('name') ?? ''),
       price: Number(form.get('price')),
-      stock:
-        form.get('stock') === '' ? undefined : Number(form.get('stock')),
-      category,
+      stock: form.get('stock') === '' ? undefined : Number(form.get('stock')),
+      // Number(categoryId) — converts the Select's string value back to
+      // the numeric category_id the backend actually expects. An empty
+      // string becomes NaN here, which correctly fails the schema's
+      // .positive() check rather than silently submitting a bad value.
+      category_id: Number(categoryId),
       description: String(form.get('description') ?? ''),
     })
     if (!parsed.success) {
@@ -200,8 +212,8 @@ function ProductForm({
         <div className="sm:col-span-2">
           <Label htmlFor="p-cat">Category</Label>
           <Select
-            value={category}
-            onValueChange={setCategory}
+            value={categoryId}
+            onValueChange={setCategoryId}
             disabled={loadingCategories}
           >
             <SelectTrigger id="p-cat" className="mt-1.5">
@@ -212,15 +224,19 @@ function ProductForm({
               />
             </SelectTrigger>
             <SelectContent>
+              {/* value is the category's id (as a string) — this is the
+                  actual behavioral change from the slug-based version */}
               {categories?.map((c) => (
-                <SelectItem key={c.id} value={c.slug}>
+                <SelectItem key={c.id} value={String(c.id)}>
                   {c.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {errors.category && (
-            <p className="mt-1 text-xs text-destructive">{errors.category}</p>
+          {errors.category_id && (
+            <p className="mt-1 text-xs text-destructive">
+              {errors.category_id}
+            </p>
           )}
         </div>
         <div className="sm:col-span-2">
