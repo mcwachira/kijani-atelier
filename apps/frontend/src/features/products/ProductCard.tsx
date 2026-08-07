@@ -10,7 +10,7 @@ export function ProductCard({ product }: { product: Product }) {
     <div className="group relative">
       <Link
         to="/products/$productId"
-        params={{ productId: String(product.id) }}
+        params={{ productId: product.slug }}
         className="block"
       >
         <div className="relative overflow-hidden rounded-md bg-secondary">

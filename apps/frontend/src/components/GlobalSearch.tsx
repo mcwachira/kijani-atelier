@@ -196,16 +196,16 @@ export function GlobalSearch({
   }
 
   // Navigate directly to a selected product's detail page
-  const goToProduct = (id: number | string) => {
+  const goToProduct = (slug:string) => {
     rememberSearch(debounced)
     setOpen(!!fullScreen)
     onNavigate?.()
-    navigate({ to: '/products/$productId', params: { productId: String(id) } })
+    navigate({ to: '/products/$productId', params: { productId: slug } })
   }
 
   // Resolves navigation depending on option selected via keyboard or click
   const selectIndex = (i: number) => {
-    if (i >= 0 && i < results.length) goToProduct(results[i].id)
+    if (i >= 0 && i < results.length) goToProduct(results[i].slug)
     else goToShop()
   }
 
@@ -318,7 +318,7 @@ export function GlobalSearch({
                 aria-selected={activeIndex === i}
                 onMouseEnter={() => setActiveIndex(i)}
                 onMouseDown={(e) => e.preventDefault()} // Prevent input blur
-                onClick={() => goToProduct(p.id)}
+                onClick={() => goToProduct(p.slug)}
                 className={cn(
                   'flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors',
                   activeIndex === i && 'bg-secondary',
