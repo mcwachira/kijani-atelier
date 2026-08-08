@@ -28,7 +28,7 @@ class UpdateCategoryRequest extends FormRequest
         // parameter — we exclude THIS record's own id from the uniqueness
         // check, otherwise a category would fail validation against its
         // own unchanged slug every time it's updated.
-        $categoryId = $this->route('category')->id;
+        $categoryId = $this->route('category')?->id;
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'slug' => ['sometimes', 'nullable', 'string', 'max:255', Rule::unique('categories', 'slug')->ignore($categoryId)],
