@@ -3,10 +3,15 @@
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
 use App\Http\Controllers\Api\Auth\VerificationController;
+use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MaterialController;
+use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SizeController;
+use App\Http\Controllers\Api\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 // prefix('v1') — every URL becomes /api/v1/... . Versioning from the very
@@ -81,5 +86,54 @@ Route::prefix('v1')->group(function () {
         Route::put('/products/{product}', [ProductController::class, 'update']);
         Route::delete('/products/{product}', [ProductController::class, 'destroy']);
     });
+
+
+
+
+// --- Cart — public (guests via X-Cart-Token, users via bearer token) ---
+    Route::middleware('auth.optional')->group(function () {
+        Route::get('/cart', [CartController::class, 'index']);
+        Route::post('/cart', [CartController::class, 'store']);
+        Route::put('/cart/{cartItem}', [CartController::class, 'update']);
+        Route::delete('/cart/{cartItem}', [CartController::class, 'destroy']);
+    });
+    Route::middleware('auth:sanctum')->post('/cart/merge', [CartController::class, 'merge']);
+
+
+// --- Wishlist — requires login ---
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/wishlist', [WishlistController::class, 'index']);
+        Route::post('/wishlist', [WishlistController::class, 'store']);
+        Route::delete('/wishlist/{wishlistItem}', [WishlistController::class, 'destroy']);
+        Route::post('/wishlist/sync', [WishlistController::class, 'sync']);
+    });
+
+// --- Reviews — public read, login required to submit ---
+    Route::get('/products/{product}/reviews', [ReviewController::class, 'index']);
+    Route::middleware('auth:sanctum')->post('/products/{product}/reviews', [ReviewController::class, 'store']);
+
+// --- Orders — guest checkout allowed, lookup by reference is public ---
+// --- Orders — guest checkout allowed, lookup by reference is public ---
+    Route::middleware('auth.optional')->post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{reference}', [OrderController::class, 'show']);
+    Route::middleware('auth:sanctum')->get('/my-orders', [OrderController::class, 'index']);
+
+    Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+        Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
+        Route::patch('/admin/orders/{order}/status', [OrderController::class, 'updateStatus']);
+    });
+
+// --- Messages — public submit, admin-only management ---
+    Route::post('/messages', [MessageController::class, 'store']);
+
+    Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+        Route::get('/admin/messages', [MessageController::class, 'index']);
+        Route::get('/admin/messages/{message}', [MessageController::class, 'show']);
+        Route::post('/admin/messages/{message}/reply', [MessageController::class, 'reply']);
+        Route::patch('/admin/messages/{message}/read', [MessageController::class, 'markRead']);
+    });
+
+
+
 
 });
