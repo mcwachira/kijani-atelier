@@ -6,7 +6,11 @@ import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { login, setAuthToken, ApiError } from '@/lib/api'
+import type { ApiError } from '@/lib/api';
+import { login} from '@/lib/api'
+import { useCart } from '@/hooks/use-cart.tsx'
+import { useWishlist } from '@/hooks/use-whishlist.tsx'
+import { useAuth } from '@/hooks/use-auth'
 
 
 export const Route = createFileRoute('/login')({
@@ -28,15 +32,26 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 function LoginPage() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
+  const { setSession } = useAuth()
+  const { merge: mergeCart } = useCart()
+  const { syncToServer: syncWishlistToServer } = useWishlist()
+
   const mutation = useMutation({
     mutationFn: login,
-    onSuccess: (res) => {
+    onSuccess:async (res) => {
       // setAuthToken keeps the token in the SAME place apiFetch reads
       // from — writing to a separate 'kijani-auth' key (the old code)
       // meant every request after login would go out unauthenticated.
-      setAuthToken(res.token)
-      localStorage.setItem('kijani-user', JSON.stringify(res.user))
+      setSession(res.token, res.user)
+
+      // Fold the guest's cart + wishlist into the now-authenticated
+      // account. MUST happen after setAuthToken — both calls hit
+      // auth:sanctum-protected endpoints and need the bearer token
+      // already in place.
+      await Promise.all([mergeCart(), syncWishlistToServer()])
+
+
       toast.success(`Welcome back, ${res.user.name.split(' ')[0]}.`)
       navigate({ to: '/' })
     },
