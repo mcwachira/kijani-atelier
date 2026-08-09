@@ -4,8 +4,6 @@ import type {
   DashboardStats,
   Category,
   Message,
-  MessageAuthor,
-  MessageReply,
   Order,
   OrderStatus,
   Paginated,
@@ -15,8 +13,22 @@ import type {
   SalesAnalytics,
   User,
 } from '@/types'
-import {  messages, orders, products, reviews } from './mock-data'
+import { getOrCreateCartToken } from '@/lib/cart-token'
 
+
+
+// Frontend-only UX guardrail — PATCH /admin/orders/{order}/status accepts
+// ANY status value (see UpdateOrderStatusRequest: just `in:pending,paid,
+// shipped,delivered,cancelled`, no transition logic server-side). This
+// constant exists purely so the admin dialog only offers sensible next
+// steps, not because the API itself enforces any ordering.
+export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  pending: ['paid', 'cancelled'],
+  paid: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: [],
+  cancelled: [],
+}
 
 
 // Base URL for every API call. Falls back to localhost:8080 (our Docker
@@ -49,7 +61,6 @@ export function setAuthToken(token:string |null){
     localStorage.removeItem('auth_token')
   }
 }
-
 export function getAuthToken(){
   return authToken;
 }
@@ -113,7 +124,7 @@ async function apiFetch<T>(
     throw new ApiError(
       data.message ?? 'Something went Wrong. please Try again.',
       response.status,
-      data.error,
+      data.errors,
     )
   }
 
@@ -300,193 +311,231 @@ export function getSizes(): Promise<{ id: number; value: string }[]> {
   return apiFetch<{ data: { id: number; value: string }[] }>('/sizes').then((res) => res.data)
 }
 
-// --- Reviews: NOT a real backend endpoint yet — still mocked ---
-// GET /products/{id}/reviews
-export function getReviews(productId: number | string): Promise<Review[]> {
-  return mock(reviews.filter((r) => r.product_id === Number(productId)))
-  // Real implementation once the Reviews API is built:
-  // return apiFetch<{ data: Review[] }>(`/products/${productId}/reviews`).then(res => res.data)
-}
-// POST /products/{id}/reviews
-export function createReview(input: {
-  product_id: number
-  rating: number
-  body: string
-  author: string
-}) {
-  const review: Review = {
-    id: Date.now(),
-    product_id: input.product_id,
-    author: input.author,
-    rating: input.rating,
-    body: input.body,
-    created_at: new Date().toISOString().slice(0, 10),
-  }
-  reviews.unshift(review)
-  return mock<Review>(review)
-  // return request<Review>(`/products/${input.product_id}/reviews`, { method: "POST", body: JSON.stringify(input) });
-}
 
+
+// Sent on every cart/checkout request. Harmless when logged in — the
+// backend's resolveCart() ignores this header entirely once it resolves
+// a real authenticated user, so there's no need to conditionally omit it.
+function cartHeaders(): HeadersInit {
+  return { 'X-Cart-Token': getOrCreateCartToken() }
+}
 /* ----------------------------------- Cart ----------------------------------- */
 /** Cart is mirrored in localStorage by `useCart`; these calls sync it server-side. */
 
-// POST /cart
+export interface CartItemApi {
+  id:number
+  quantity:number
+  size:string | null
+  line_total:number
+  product:Product
+}
+
+export interface CartApi {
+  id:number | null
+  items:CartItemApi[]
+  subtotal:number
+}
+
+// Get /cart
+export function getCart():Promise<CartApi>
+{
+  return apiFetch<{ data: CartApi }>('/cart', { headers: cartHeaders() }).then(
+    (res) => res.data,
+  )
+}
+
+
+// POST /Cart
 export function addToCart(
-  productId: number,
-  quantity: number,
-  size: string | null,
-) {
-  return mock({ ok: true, product_id: productId, quantity, size })
-  // return request("/cart", { method: "POST", body: JSON.stringify({ product_id: productId, quantity, size }) });
+    productId:number,
+    quantity=1,
+    size:string |null = null
+
+):Promise<CartApi>{
+  return apiFetch<{data:CartApi}>('/cart',{
+    method: 'POST',
+    headers: cartHeaders(),
+    body: JSON.stringify({ product_id: productId, quantity, size }),
+  }).then((res) => res.data)
 }
 
-// GET /cart
-export function getCart(): Promise<{ items: CartLine[] }> {
-  return mock({ items: [] as CartLine[] })
-  // return request<{ items: CartLine[] }>("/cart");
+// PUT /cart/{cartItem}
+export function updateCartItem(itemId: number, quantity: number): Promise<CartApi> {
+  return apiFetch<{ data: CartApi }>(`/cart/${itemId}`, {
+    method: 'PUT',
+    headers: cartHeaders(),
+    body: JSON.stringify({ quantity }),
+  }).then((res) => res.data)
 }
 
-// PATCH /cart/{itemId}
-export function updateCartItem(itemId: string, quantity: number) {
-  return mock({ ok: true, itemId, quantity })
-  // return request(`/cart/${itemId}`, { method: "PATCH", body: JSON.stringify({ quantity }) });
+// DELETE /cart/{cartItem}
+export function removeCartItem(itemId: number): Promise<CartApi> {
+  return apiFetch<{ data: CartApi }>(`/cart/${itemId}`, {
+    method: 'DELETE',
+    headers: cartHeaders(),
+  }).then((res) => res.data)
 }
 
-// DELETE /cart/{itemId}
-export function removeCartItem(itemId: string) {
-  return mock({ ok: true, itemId })
-  // return request(`/cart/${itemId}`, { method: "DELETE" });
+// POST /cart/merge — call right after login/register succeeds, passing
+// whatever guest cart token was accumulated via X-Cart-Token. Requires
+// auth:sanctum on the backend, so authToken must already be set (via
+// setAuthToken) BEFORE this is called.
+export function mergeCart(): Promise<CartApi> {
+  return apiFetch<{ data: CartApi }>('/cart/merge', {
+    method: 'POST',
+    headers: cartHeaders(),
+  }).then((res) => res.data)
 }
-
 /* ---------------------------------- Orders ---------------------------------- */
 
-// POST /orders
+// POST /orders — guest checkout allowed. X-Cart-Token is sent so the
+// backend clears the RIGHT cart (guest or logged-in) after the order
+// completes — see OrderController::store's cart-clearing logic.
+
 export function createOrder(payload: CheckoutPayload): Promise<Order> {
-  const lines = payload.items.map((line) => {
-    const product = products.find((p) => p.id === line.product_id)
-    if (!product)
-      throw new Error('One of the pieces in your order is no longer available.')
-    return {
-      product_name: product.name,
-      quantity: line.quantity,
-      price: product.price,
-      size: line.size,
-    }
-  })
-  const subtotal = lines.reduce((sum, l) => sum + l.price * l.quantity, 0)
-  const now = new Date().toISOString()
-  const order: Order = {
-    id: Date.now(),
-    reference: `KJ-${Math.floor(1000 + Math.random() * 8999)}`,
-    customer_name: payload.name,
-    email: payload.email,
-    phone: payload.phone,
-    county: payload.county,
-    town: payload.town,
-    address: payload.address,
-    payment_method: payload.payment_method,
-    status: 'pending',
-    total: subtotal + (lines.length ? 350 : 0),
-    items: lines,
-    status_history: [
-      {
-        id: Date.now(),
-        from: null,
-        to: 'pending',
-        note: 'Order placed by customer.',
-        actor: 'System',
-        created_at: now,
-      },
-    ],
-    created_at: now,
-  }
-  orders.unshift(order)
-  return mock<Order>(order, 900)
-  // return request<Order>("/orders", { method: "POST", body: JSON.stringify(payload) });
+  return apiFetch<{ data: Order }>('/orders', {
+    method: 'POST',
+    headers: cartHeaders(),
+    body: JSON.stringify(payload),
+  }).then((res) => res.data)
 }
 
-// GET /orders/{reference}
+// GET /orders/{reference} — public, no login required
 export function getOrderByReference(reference: string): Promise<Order> {
-  const found = orders.find((o) => o.reference === reference)
-  if (!found) return Promise.reject(new Error('Order not found'))
-  return mock(found)
-  // return request<Order>(`/orders/${reference}`);
+  return apiFetch<{ data: Order }>(`/orders/${reference}`).then((res) => res.data)
 }
 
-// GET /orders
+// GET /my-orders — requires login
 export function getOrders(): Promise<Order[]> {
-  return mock(orders)
-  // return request<Order[]>("/orders");
+  return apiFetch<{ data: Order[] }>('/my-orders').then((res) => res.data)
 }
 
-/** Fulfilment rules — an order may only move forward, or be cancelled before dispatch. */
-export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ['paid', 'cancelled'],
-  paid: ['shipped', 'cancelled'],
-  shipped: ['delivered'],
-  delivered: [],
-  cancelled: [],
+// GET /admin/orders — admin only, paginated on the backend but we just
+// unwrap the .data array here since AdminOrders renders a flat list.
+export function getAdminOrders(): Promise<Order[]> {
+  return apiFetch<{ data: Order[] }>('/admin/orders').then((res) => res.data)
 }
 
-// PATCH /admin/orders/{id}/status
+
+// PATCH /adimn / orders / { order } / status
+// NOTE: no `actor` field sent — the backend derives it from the logged-in
+// admin's own name automatically (UpdateOrderStatusRequest has no actor
+// field at all). AdminOrders.tsx's "Updated by" input is currently
+// cosmetic only until that page is updated to stop sending it.
 export function updateOrderStatus(input: {
   id: number
   status: OrderStatus
   note?: string
-  actor?: string
 }): Promise<Order> {
-  const index = orders.findIndex((o) => o.id === input.id)
-  if (index === -1) return Promise.reject(new Error('Order not found'))
-  const current = orders[index]
-  if (input.status === current.status)
-    return Promise.reject(
-      new Error(`This order is already marked ${current.status}.`),
-    )
-  if (!ORDER_TRANSITIONS[current.status].includes(input.status))
-    return Promise.reject(
-      new Error(
-        `An order that is ${current.status} cannot move to ${input.status}.`,
-      ),
-    )
-
-  const note = (input.note ?? '').trim()
-  if (input.status === 'cancelled' && note.length < 5)
-    return Promise.reject(
-      new Error('A cancellation needs a note of at least 5 characters.'),
-    )
-  if (note.length > 280)
-    return Promise.reject(new Error('Keep the note under 280 characters.'))
-
-  const next: Order = {
-    ...current,
-    status: input.status,
-    status_history: [
-      ...current.status_history,
-      {
-        id: Date.now(),
-        from: current.status,
-        to: input.status,
-        note: note || `Marked ${input.status}.`,
-        actor: input.actor?.trim() || 'Admin',
-        created_at: new Date().toISOString(),
-      },
-    ],
-  }
-  orders[index] = next
-  return mock(next, 700)
-  // return request<Order>(`/admin/orders/${input.id}/status`, { method: "PATCH", body: JSON.stringify(input) });
+  return apiFetch<{ data: Order }>(`/admin/orders/${input.id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: input.status, note: input.note }),
+  }).then((res) => res.data)
 }
 
 
+/* ---------------------------------- Reviews --------------------------------- */
+
+// POST /products/{product}/reviews — REQUIRES LOGIN now (401 for guests).
+// `author` is no longer sent — the backend takes it from the logged-in
+// user's own account name, so it can't be spoofed. ProductReviews.tsx's
+// name input needs to be removed once you update that component.
+export function createReview(input: {
+  product_id: number
+  rating: number
+  body: string
+}): Promise<Review> {
+  return apiFetch<{ data: Review }>(`/products/${input.product_id}/reviews`, {
+    method: 'POST',
+    body: JSON.stringify({ rating: input.rating, body: input.body }),
+  }).then((res) => res.data)
+}
+
+/* --------------------------------- Wishlist --------------------------------- */
+
+export interface WishlistItemApi {
+  id: number
+  size: string | null
+  product: Product
+  added_at: string
+}
+
+// GET /wishlist — REQUIRES LOGIN (401 for guests)
+export function getWishlist(): Promise<WishlistItemApi[]> {
+  return apiFetch<{ data: WishlistItemApi[] }>('/wishlist').then((res) => res.data)
+}
+
+// POST /wishlist
+export function addToWishlist(productId: number, size: string | null = null): Promise<WishlistItemApi> {
+  return apiFetch<{ data: WishlistItemApi }>('/wishlist', {
+    method: 'POST',
+    body: JSON.stringify({ product_id: productId, size }),
+  }).then((res) => res.data)
+}
+
+// DELETE /wishlist/{wishlistItem}
+export function removeWishlistItem(id: number): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/wishlist/${id}`, { method: 'DELETE' })
+}
+
+// POST /wishlist/sync — call after login with whatever was tracked
+// locally for a guest, since there's no server-side guest wishlist.
+export function syncWishlist(
+    lines: { product_id: number; size: string | null }[],
+): Promise<WishlistItemApi[]> {
+  return apiFetch<{ data: WishlistItemApi[] }>('/wishlist/sync', {
+    method: 'POST',
+    body: JSON.stringify({ items: lines }),
+  }).then((res) => res.data)
+}
+
+/* --------------------------------- Messaging -------------------------------- */
+
+// POST /messages — public contact form
+export function createMessage(input: {
+  name: string
+  email: string
+  subject: string
+  body: string
+}): Promise<Message> {
+  return apiFetch<{ data: Message }>('/messages', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }).then((res) => res.data)
+}
+
+// GET /admin/messages — admin only
+export function getMessages(): Promise<Message[]> {
+  return apiFetch<{ data: Message[] }>('/admin/messages').then((res) => res.data)
+}
+
+// POST /admin/messages/{message}/reply
+// NOTE: only `body` is sent — `author`/`author_name` are no longer
+// accepted, the backend derives them from the logged-in admin. See the
+// AdminMessages.tsx note below.
+export function replyToMessage(input: { id: number; body: string }): Promise<Message> {
+  return apiFetch<{ data: Message }>(`/admin/messages/${input.id}/reply`, {
+    method: 'POST',
+    body: JSON.stringify({ body: input.body }),
+  }).then((res) => res.data)
+}
+
+// PATCH /admin/messages/{message}/read
+export function markMessageRead(id: number): Promise<Message> {
+  return apiFetch<{ data: Message }>(`/admin/messages/${id}/read`, {
+    method: 'PATCH',
+  }).then((res) => res.data)
+}
 
 /* ---------------------------------- Admin ----------------------------------- */
 
 // GET /admin/dashboard
-export function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const recentOrders = await getAdminOrders()
   const months = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
-  return mock({
-    total_sales: 2_486_500,
-    orders_count: orders.length * 12,
+  return {
+    total_sales: 2_486_500, // still a placeholder — no real revenue-aggregation endpoint yet
+    orders_count: recentOrders.length,
     customers_count: 486,
     average_order_value: 8_950,
     revenue_series: months.map((month, i) => ({
@@ -494,12 +543,9 @@ export function getDashboardStats(): Promise<DashboardStats> {
       revenue: 210_000 + i * 62_000 + (i % 2 ? 34_000 : 0),
       orders: 24 + i * 7,
     })),
-    recent_orders: orders.slice(0, 6),
-  })
-  // return request<DashboardStats>("/admin/dashboard");
+    recent_orders: recentOrders.slice(0, 6),
+  }
 }
-
-// GET /admin/analytics/sales
 export function getSalesAnalytics(
   filters: { from?: string; to?: string; region?: string } = {},
 ): Promise<SalesAnalytics> {
@@ -525,118 +571,11 @@ export function getSalesAnalytics(
       month,
       revenue: 190_000 + i * 55_000,
     })),
-    top_products: products.slice(0, 6).map((p, i) => ({
-      name: p.name,
-      units: 92 - i * 11,
-      revenue: p.price * (92 - i * 11),
-    })),
+    // top_products left empty for the same reason as recent_orders above.
+    top_products: [],
   })
-  // return request<SalesAnalytics>(`/admin/analytics/sales?${new URLSearchParams(filters as never)}`);
 }
 
-/* --------------------------------- Messaging -------------------------------- */
-
-// GET /admin/messages
-export function getMessages(): Promise<Message[]> {
-  return mock([...messages])
-  // return request<Message[]>("/admin/messages");
-}
-
-// GET /messages?email=
-export function getCustomerMessages(email: string): Promise<Message[]> {
-  const mine = messages.filter(
-    (m) => m.email.toLowerCase() === email.trim().toLowerCase(),
-  )
-  return mock(mine)
-  // return request<Message[]>(`/messages?email=${encodeURIComponent(email)}`);
-}
-
-// POST /messages
-export function createMessage(input: {
-  name: string
-  email: string
-  subject: string
-  body: string
-}): Promise<Message> {
-  const name = input.name.trim()
-  const email = input.email.trim()
-  const subject = input.subject.trim()
-  const body = input.body.trim()
-  if (name.length < 2)
-    return Promise.reject(new Error('Please tell us your name.'))
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return Promise.reject(new Error("That email doesn't look right."))
-  if (subject.length < 3)
-    return Promise.reject(new Error('Add a short subject.'))
-  if (body.length < 10)
-    return Promise.reject(
-      new Error('Tell us a little more (10 characters minimum).'),
-    )
-  if (body.length > 1000)
-    return Promise.reject(
-      new Error('Please keep your message under 1000 characters.'),
-    )
-
-  const message: Message = {
-    id: Math.max(0, ...messages.map((m) => m.id)) + 1,
-    name,
-    email,
-    subject,
-    preview: body.slice(0, 90),
-    body,
-    unread: true,
-    replies: [],
-    created_at: new Date().toISOString(),
-  }
-  messages.unshift(message)
-  return mock(message, 600)
-  // return request<Message>("/messages", { method: "POST", body: JSON.stringify(input) });
-}
-
-// POST /messages/{id}/replies
-export function replyToMessage(input: {
-  id: number
-  body: string
-  author: MessageAuthor
-  author_name?: string
-}): Promise<Message> {
-  const index = messages.findIndex((m) => m.id === input.id)
-  if (index === -1) return Promise.reject(new Error('Conversation not found'))
-  const body = input.body.trim()
-  if (body.length < 2)
-    return Promise.reject(new Error('Write a reply before sending.'))
-  if (body.length > 1000)
-    return Promise.reject(
-      new Error('Please keep the reply under 1000 characters.'),
-    )
-
-  const reply: MessageReply = {
-    id: Date.now(),
-    author: input.author,
-    author_name:
-      input.author_name?.trim() ||
-      (input.author === 'admin' ? 'Kijani Atelier' : messages[index].name),
-    body,
-    created_at: new Date().toISOString(),
-  }
-  const next: Message = {
-    ...messages[index],
-    replies: [...messages[index].replies, reply],
-    unread: input.author === 'customer',
-  }
-  messages[index] = next
-  return mock(next, 600)
-  // return request<Message>(`/messages/${input.id}/replies`, { method: "POST", body: JSON.stringify(input) });
-}
-
-// PATCH /admin/messages/{id}/read
-export function markMessageRead(id: number): Promise<Message> {
-  const index = messages.findIndex((m) => m.id === id)
-  if (index === -1) return Promise.reject(new Error('Conversation not found'))
-  messages[index] = { ...messages[index], unread: false }
-  return mock(messages[index], 150)
-  // return request<Message>(`/admin/messages/${id}/read`, { method: "PATCH" });
-}
 
 /* ------------------------------ Admin: catalog ------------------------------ */
 
@@ -720,26 +659,4 @@ export function deleteProduct(id: number): Promise<{ message: string }> {
 
 export interface AuthMessage {
   message: string
-}
-
-
-
-/* --------------------------------- Wishlist --------------------------------- */
-
-export interface WishlistLine {
-  product_id: number
-  size: string | null
-  added_at: string
-}
-
-// GET /wishlist
-export function getWishlist(): Promise<WishlistLine[]> {
-  return mock<WishlistLine[]>([], 250)
-  // return request<WishlistLine[]>("/wishlist");
-}
-
-// POST /wishlist/sync — merges the guest wishlist into the signed-in account.
-export function syncWishlist(lines: WishlistLine[]): Promise<WishlistLine[]> {
-  return mock(lines, 500)
-  // return request("/wishlist/sync", { method: "POST", body: JSON.stringify({ items: lines }) });
 }

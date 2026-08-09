@@ -1,4 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { QueryClient} from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query'
 import {
   Outlet,
   Link,
@@ -7,13 +8,14 @@ import {
   HeadContent,
   Scripts,
 } from '@tanstack/react-router'
-import { useEffect, type ReactNode } from 'react'
-import { CartProvider } from '@/hooks/use-cart'
+import { useEffect  } from 'react'
+import type {ReactNode} from 'react';
 import { Toaster } from '@/components/ui/sonner'
 import { reportLovableError } from '@/lib/lovable-error-reporting'
 import appCss from '@/styles.css?url'
 import { ThemeProvider } from '@/hooks/use-theme'
 import { WishlistProvider } from '@/hooks/use-whishlist'
+import { AuthProvider } from '#/hooks/use-auth.tsx'
 
 function NotFoundComponent() {
   return (
@@ -145,13 +147,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <AuthProvider>
       <WishlistProvider>
-        <CartProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
           <Outlet />
           <Toaster position="top-center" />
-        </CartProvider>
       </WishlistProvider>
+
+      </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

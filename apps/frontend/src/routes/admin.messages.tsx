@@ -182,8 +182,6 @@ function AdminMessages() {
                     reply.mutate({
                       id: selected.id,
                       body,
-                      author: 'admin',
-                      author_name: 'Kijani Atelier',
                     })
                   }}
                 >
