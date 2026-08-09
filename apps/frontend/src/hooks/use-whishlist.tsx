@@ -7,6 +7,7 @@ import {
 } from 'react'
 import type { Product } from '@/types'
 import { usePersistedState } from './use-persisted-state'
+import { syncWishlist } from '@/lib/api'
 
 const STORAGE_KEY = 'kijani-wishlist-v1'
 
@@ -24,8 +25,11 @@ interface WishlistContextValue {
   add: (product: Product, size?: string | null) => void
   remove: (productId: number) => void
   toggle: (product: Product, size?: string | null) => boolean
-  setSize: (productId: number, size: string| null) => void
+  setSize: (productId: number, size: string | null) => void
   clear: () => void
+  // New: pushes the current LOCAL wishlist into the real backend —
+  // call this once, right after login/register succeeds.
+  syncToServer: () => Promise<void>
 }
 
 const WishlistContext = createContext<WishlistContextValue | null>(null)
@@ -42,7 +46,12 @@ function parseStored(raw: string | null): WishlistItem[] {
       })
       .map((i) => ({
         product: i.product,
-        size: typeof i.size === 'string' ? i.size : typeof i.size === 'number' && Number.isFinite(i.size) ? String(i.size) : null,
+        size:
+          typeof i.size === 'string'
+            ? i.size
+            : typeof i.size === 'number' && Number.isFinite(i.size)
+              ? String(i.size)
+              : null,
         added_at:
           typeof i.added_at === 'string'
             ? i.added_at
@@ -54,7 +63,10 @@ function parseStored(raw: string | null): WishlistItem[] {
 }
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
-  const [items, setItems, hydrated] = usePersistedState(STORAGE_KEY, parseStored)
+  const [items, setItems, hydrated] = usePersistedState(
+    STORAGE_KEY,
+    parseStored,
+  )
 
   const has = useCallback(
     (productId: number) => items.some((i) => i.product.id === productId),
@@ -91,6 +103,23 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   const clear = useCallback(() => setItems([]), [])
 
+  // One-directional: LOCAL → server only. We don't pull the backend's
+  // list back down and merge it into local state, since local `items`
+  // already holds full Product objects and is the UI's source of truth —
+  // there's nothing the server response would usefully add here. If the
+  // sync call fails, we swallow it silently: a failed wishlist sync
+  // should never block login from succeeding.
+  const syncToServer = useCallback(async () => {
+    if (!items.length) return
+    try {
+      await syncWishlist(
+        items.map((i) => ({ product_id: i.product.id, size: i.size })),
+      )
+    } catch {
+      // non-fatal — local wishlist still works regardless
+    }
+  }, [items])
+
   const value = useMemo<WishlistContextValue>(
     () => ({
       items,
@@ -102,8 +131,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       toggle,
       setSize,
       clear,
+      syncToServer,
     }),
-    [items, hydrated, has, add, remove, toggle, setSize, clear],
+    [items, hydrated, has, add, remove, toggle, setSize, clear, syncToServer],
   )
 
   return (

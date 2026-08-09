@@ -2,23 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
-import { createReview } from '@/lib/api'
+import { Link } from '@tanstack/react-router'
+import { createReview, getAuthToken  } from '@/lib/api'
+import type {ApiError} from '@/lib/api';
 import { reviewsQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 import { StarRating } from '@/components/StarRating'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
-import type { Review } from '@/types'
 
 const reviewSchema = z.object({
-  author: z
-    .string()
-    .trim()
-    .max(60, 'Keep your name under 60 characters.')
-    .optional(),
   rating: z.number().int().min(1, 'Choose a rating.').max(5),
   body: z
     .string()
@@ -29,36 +24,40 @@ const reviewSchema = z.object({
 
 export function ProductReviews({ productId }: { productId: number }) {
   const queryClient = useQueryClient()
-  const { data: reviews, isLoading, isError } = useQuery(reviewsQuery(productId))
+  const {
+    data: reviews,
+    isLoading,
+    isError,
+  } = useQuery(reviewsQuery(productId))
   const [rating, setRating] = useState(5)
-  const [author, setAuthor] = useState('')
   const [body, setBody] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // Reviews now REQUIRE login (POST /products/{product}/reviews returns
+  // 401 for guests) — check for a token before even showing the form.
+  const isLoggedIn = !!getAuthToken()
   const queryKey = ['reviews', String(productId)]
 
   const mutation = useMutation({
     mutationFn: createReview,
     onSuccess: (review) => {
-      // Show it instantly in the list, then reconcile with the server.
-      queryClient.setQueryData<Review[]>(queryKey, (current) => [
+      queryClient.setQueryData<typeof reviews>(queryKey, (current) => [
         review,
         ...(current ?? []),
       ])
       toast.success('Thank you — your review has been submitted.')
       setBody('')
-      setAuthor('')
       setRating(5)
       setError(null)
       void queryClient.invalidateQueries({ queryKey })
     },
-    onError: () =>
-      setError("We couldn't submit your review. Please try again."),
+    onError: (err:ApiError) =>
+      setError(err.message|| "We couldn't submit your review. Please try again."),
   })
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const parsed = reviewSchema.safeParse({ author, rating, body })
+    const parsed = reviewSchema.safeParse({ rating, body })
     if (!parsed.success) {
       setError(parsed.error.issues[0].message)
       return
@@ -68,7 +67,6 @@ export function ProductReviews({ productId }: { productId: number }) {
       product_id: productId,
       rating: parsed.data.rating,
       body: parsed.data.body,
-      author: parsed.data.author || 'Anonymous',
     })
   }
 
@@ -118,52 +116,58 @@ export function ProductReviews({ productId }: { productId: number }) {
         </div>
       </div>
 
-      <form
-        className="h-fit rounded-lg border border-border bg-card p-6 shadow-[var(--shadow-soft)]"
-        onSubmit={submit}
-        noValidate
-      >
-        <h3 className="font-display text-xl">Write a review</h3>
-        <div className="mt-5 space-y-4">
-          <div>
-            <span className="eyebrow">Your rating</span>
-            <StarRating
-              value={rating}
-              size={22}
-              interactive
-              onChange={setRating}
-              className="mt-2"
+      {isLoggedIn ? (
+        <form
+          className="h-fit rounded-lg border border-border bg-card p-6 shadow-[var(--shadow-soft)]"
+          onSubmit={submit}
+          noValidate
+        >
+          <h3 className="font-display text-xl">Write a review</h3>
+          <div className="mt-5 space-y-4">
+            <div>
+              <span className="eyebrow">Your rating</span>
+              <StarRating
+                value={rating}
+                size={22}
+                interactive
+                onChange={setRating}
+                className="mt-2"
+              />
+            </div>
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="How does it wear, fit and feel?"
+              rows={4}
+              maxLength={1000}
+              aria-label="Your review"
             />
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={mutation.isPending}
+            >
+              {mutation.isPending ? 'Submitting…' : 'Submit review'}
+            </Button>
           </div>
-          <Input
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            placeholder="Your name"
-            maxLength={60}
-            aria-label="Your name"
-          />
-          <Textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="How does it wear, fit and feel?"
-            rows={4}
-            maxLength={1000}
-            aria-label="Your review"
-          />
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={mutation.isPending}
-          >
-            {mutation.isPending ? 'Submitting…' : 'Submit review'}
+        </form>
+      ) : (
+        // Login-gated fallback — the endpoint 401s for guests, so there's
+        // no point rendering a form that will always fail.
+        <div className="h-fit rounded-lg border border-dashed border-border p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Sign in to leave a review.
+          </p>
+          <Button asChild variant="outline" className="mt-4 w-full">
+            <Link to="/login">Sign in</Link>
           </Button>
         </div>
-      </form>
+      )}
     </section>
   )
 }

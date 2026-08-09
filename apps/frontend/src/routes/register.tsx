@@ -1,14 +1,16 @@
-import { createFileRoute , Link, useNavigate} from '@tanstack/react-router'
-import {useMutation} from '@tanstack/react-query'
-import {toast} from 'sonner'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useMutation } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { authApi, setAuthToken } from '@/lib/api'
+import { authApi } from '@/lib/api'
 import { useMemo, useState } from 'react'
-import { getPasswordStrength } from '#/lib/utils.ts'
-
+import { getPasswordStrength } from '@/lib/utils.ts'
+import { useAuth } from '@/hooks/use-auth'
+import { useCart } from '@/hooks/use-cart'
+import { useWishlist } from '@/hooks/use-whishlist'
 
 export const Route = createFileRoute('/register')({
   head: () => ({
@@ -31,6 +33,9 @@ export const Route = createFileRoute('/register')({
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const { setSession } = useAuth()
+  const { merge: mergeCart } = useCart()
+  const { syncToServer: syncWishlistToServer } = useWishlist()
 
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
@@ -48,18 +53,16 @@ function RegisterPage() {
 
   const mutation = useMutation({
     mutationFn: authApi.register,
-    onSuccess: (res) => {
-      // Use setAuthToken from lib/api.ts, not a raw localStorage.setItem
-      // under a different key. This keeps the token in the SAME place
-      // apiFetch() reads from — every future authenticated call
-      // (authApi.me(), authApi.logout(), cart/order calls later) will
-      // automatically pick it up.
-      setAuthToken(res.token)
+    onSuccess: async (res) => {
+      // setSession replaces the old setAuthToken() + localStorage.setItem
+      // pair — it does both AND updates React auth state, which is what
+      // makes Navbar's isAuthenticated flip immediately, no reload needed.
+      setSession(res.token, res.user)
 
-      // Still worth keeping the full user object somewhere for the UI to
-      // read (name, email, verified status) — a separate, non-auth key is
-      // fine for that, since it's just display data, not the credential.
-      localStorage.setItem('kijani-user', JSON.stringify(res.user))
+      // Fold the guest cart + wishlist into the now-authenticated
+      // account. Must run AFTER setSession — both calls hit
+      // auth:sanctum-protected endpoints needing the bearer token already set.
+      await Promise.all([mergeCart(), syncWishlistToServer()])
 
       // Note: real app routes will require a VERIFIED email once Phase 2's
       // `verified` middleware group is actually populated with routes.
@@ -143,13 +146,14 @@ function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
 
-          {/*  Strength meter - will only render once the user has started to type something*/}
-            {password.length > 0 &&(
+            {/*  Strength meter - will only render once the user has started to type something*/}
+            {password.length > 0 && (
               <div className="mt-2">
                 <div className="flex gap-1">
-                  {[0,1,2,3,4].map((i) => (
-                    <div key={i} className={`h-1 rounded-full transition-colors ${i < strength.score ? strength.color : 'bg-muted'}`}
-
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className={`h-1 rounded-full transition-colors ${i < strength.score ? strength.color : 'bg-muted'}`}
                     />
                   ))}
                 </div>
@@ -181,11 +185,8 @@ function RegisterPage() {
               </p>
             )}
             {passwordsMatch && (
-              <p className="mt-1.5 text-xs text-green-600">
-                Passwords match.
-              </p>
+              <p className="mt-1.5 text-xs text-green-600">Passwords match.</p>
             )}
-
           </div>
           <Button
             type="submit"
@@ -210,4 +211,3 @@ function RegisterPage() {
     </StoreLayout>
   )
 }
-

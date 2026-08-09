@@ -1,8 +1,14 @@
-import { Link, linkOptions } from '@tanstack/react-router'
-import { Heart, Moon, ShoppingBag, Sun, User, Menu } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Heart, Menu, Search, User, LogOut, Package } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { GlobalSearch, MobileSearchTrigger } from '@/components/GlobalSearch'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,164 +17,206 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useCart } from '@/hooks/use-cart'
-import { useWishlist } from '@/hooks/use-whishlist.tsx'
-import { useTheme } from '@/hooks/use-theme'
+import { useWishlist } from '@/hooks/use-whishlist'
+import { useAuth } from '@/hooks/use-auth'
+import { logout as logoutApi } from '@/lib/api'
+import { GlobalSearch } from '../GlobalSearch.tsx'
 
-const links = linkOptions([
-  { to: '/shop', label: 'Shop', search: {} },
-  { to: '/shop', label: 'Sandals', search: { category: 'sandals' } },
-  { to: '/shop', label: 'Kiondos', search: { category: 'kiondos' } },
-  { to: '/shop', label: 'Handbags', search: { category: 'handbags' } },
-])
+const NAV_LINKS = [
+  { to: '/shop', label: 'Shop' },
+  { to: '/shop', search: { category: 'sandals' }, label: 'Sandals' },
+  { to: '/shop', search: { category: 'kiondos' }, label: 'Kiondos' },
+  { to: '/shop', search: { category: 'handbags' }, label: 'Handbags' },
+  { to: '/about', label: 'Our Story' },
+]
 
 export function Navbar() {
-  const { count } = useCart()
-  const { count: savedCount } = useWishlist()
-  const { theme, toggleTheme } = useTheme()
+  const { count } = useWishlist()
+  const { user, isAuthenticated, logout } = useAuth()
+  const navigate = useNavigate()
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const handleLogout = async () => {
+    try {
+      // Tells the backend to revoke this specific token — see
+      // AuthController::logout(), which deletes only the CURRENT
+      // token, not every device the user's logged in on.
+      await logoutApi()
+    } catch {
+      // Even if the API call fails (token already expired, network
+      // hiccup), still clear local state so the UI reflects "logged
+      // out" regardless — a failed server-side revoke shouldn't trap
+      // the user in a broken logged-in-looking state.
+    }
+    logout()
+    navigate({ to: '/' })
+  }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:h-20 lg:px-8">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              aria-label="Open menu"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-6">
-            <div className="mt-8">
-              <GlobalSearch />
-            </div>
-            <nav className="mt-6 flex flex-col gap-5">
-              {links.map((l) => (
-                <Link
-                  key={l.label}
-                  to={l.to}
-                  search={l.search}
-                  className="font-display text-2xl text-foreground"
-                >
-                  {l.label}
-                </Link>
-              ))}
-              <Link
-                to="/wishlist"
-                className="font-display text-2xl text-foreground"
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-8">
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                aria-label="Open menu"
               >
-                Wishlist
-              </Link>
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72">
+              <SheetHeader>
+                <SheetTitle className="font-display text-xl">
+                  Kijani Atelier
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="mt-8 flex flex-col gap-1">
+                {NAV_LINKS.map((link) => (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    search={link.search}
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-md px-3 py-2.5 text-sm hover:bg-secondary"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+              <div className="mt-8 border-t border-border pt-6">
+                {isAuthenticated ? (
+                  <div className="flex flex-col gap-1">
+                    <p className="px-3 text-xs text-muted-foreground">
+                      Signed in as {user?.name}
+                    </p>
+                    <Link
+                      to="/orders"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-md px-3 py-2.5 text-sm hover:bg-secondary"
+                    >
+                      My orders
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false)
+                        void handleLogout()
+                      }}
+                      className="rounded-md px-3 py-2.5 text-left text-sm hover:bg-secondary"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <Link
+                      to="/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-md px-3 py-2.5 text-sm hover:bg-secondary"
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      to="/register"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-md px-3 py-2.5 text-sm hover:bg-secondary"
+                    >
+                      Create account
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <Link to="/" className="font-display text-xl tracking-tight">
+            Kijani Atelier
+          </Link>
+
+          <nav className="hidden items-center gap-6 lg:flex">
+            {NAV_LINKS.map((link) => (
               <Link
-                to="/messages"
-                className="font-display text-2xl text-foreground"
+                key={link.label}
+                to={link.to}
+                search={link.search}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                Messages
+                {link.label}
               </Link>
-              <Link to="/admin" className="eyebrow pt-4">
-                Admin dashboard
-              </Link>
-            </nav>
-          </SheetContent>
-        </Sheet>
+            ))}
+          </nav>
+        </div>
 
-        <Link to="/" className="shrink-0">
-          <span className="font-display text-2xl tracking-tight lg:text-[1.75rem]">
-            Kijani
-          </span>
-          <span className="eyebrow ml-2 hidden sm:inline">Atelier</span>
-        </Link>
-
-        <nav className="ml-8 hidden items-center gap-7 lg:flex">
-          {links.map((l) => (
-            <Link
-              key={l.label}
-              to={l.to}
-              search={l.search}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
-          <GlobalSearch className="hidden w-44 md:block lg:w-60" />
-          <MobileSearchTrigger className="md:hidden" />
-
+        <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            onClick={toggleTheme}
-            aria-label="Toggle colour mode"
+            aria-label="Search"
+            onClick={() => setSearchOpen(true)}
           >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
+            <Search className="h-5 w-5" />
           </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Account menu">
-                <User className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/login">Sign in</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/register">Create account</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/wishlist">Wishlist</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/messages">Messages</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/admin">Admin dashboard</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
           <Button
             variant="ghost"
             size="icon"
             asChild
-            aria-label={`Wishlist, ${savedCount} saved`}
+            className="relative"
+            aria-label="Wishlist"
           >
-            <Link to="/wishlist" className="relative">
+            <Link to="/wishlist">
               <Heart className="h-5 w-5" />
-              {savedCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-foreground">
-                  {savedCount}
-                </span>
-              )}
-            </Link>
-          </Button>
-
-          <Button variant="ghost" size="icon" asChild aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}>
-            <Link to="/cart" className="relative">
-              <ShoppingBag className="h-5 w-5" />
               {count > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-foreground">
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-accent-foreground">
                   {count}
                 </span>
               )}
             </Link>
           </Button>
+
+          {/* Auth-aware account icon — a dropdown when signed in (name,
+              orders, sign out), a plain link to /login when signed out.
+              Using a DropdownMenu here rather than a second Sheet keeps
+              this lightweight for a single small menu. */}
+          {isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Account menu">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="truncate">
+                  {user?.name}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/orders" className="flex items-center gap-2">
+                    <Package className="h-4 w-4" /> My orders
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => void handleLogout()}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" /> Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="ghost" size="icon" asChild aria-label="Sign in">
+              <Link to="/login">
+                <User className="h-5 w-5" />
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
+
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   )
 }
