@@ -1,100 +1,107 @@
-import {createContext, useCallback, useContext, useEffect, useMemo, type ReactNode} from 'react'
-import type {CartItem, Product} from "@/types"
-import {usePersistedState} from './use-persisted-state'
+import { useCallback } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  getCart,
+  addToCart,
+  updateCartItem,
+  removeCartItem,
+  mergeCart,
+} from '@/lib/api'
+import type { Product } from '@/types'
 
-const STORAGE_KEY = "kijani-cart-v2";
-const LEGACY_KEY = "kijani-cart";
-const SHIPPING_FLAT = 350;
-
-interface CartContextValue {
-  items: CartItem[];
-  subtotal: number;
-  shipping: number;
-  total: number;
-  count:number;
-  hydrated:boolean;
-  addItem:(product:Product, quantity?:number, size?:string |null) => void
-  updateQuantity:(id:string, quantity:number) => void
-  removeItem:(id:string) => void
-  clear:() => void
-}
-
-const CartContext = createContext<CartContextValue | null>(null)
-
-function parseStored(raw:string|null):CartItem[]{
-  if(!raw) return [];
-  try{
-    const  parsed = JSON.parse(raw) as unknown;
-    if(!Array.isArray(parsed)) return [];
-    return parsed.filter((i):i is CartItem => {
-      const item = i as Partial<CartItem>;
-      return !!item && typeof item.id === "string" && !!item.product && typeof item.quantity === "number";
-    }).map((i) => ({
-      id:i.id,
-      product:i.product,
-      quantity:Math.max(1, Math.round(i.quantity)),
-      size:typeof i.size === "string" ?i.size:null
-    }))
-  }catch{
-    return []
-  }
-}
-export function CartProvider({children}: {children: ReactNode}) {
-  const [items, setItems, hydrated] = usePersistedState(STORAGE_KEY, parseStored)
-
-  // Legacy key migration: run once after hydration
-  useEffect(() => {
-    if (!hydrated) return
-    if (items.length > 0) return
-    const legacy = parseStored(window.localStorage.getItem(LEGACY_KEY))
-    if (legacy.length) {
-      setItems(legacy)
-      window.localStorage.removeItem(LEGACY_KEY)
-    }
-  }, [hydrated])
-
-  const addItem = useCallback((product: Product, quantity = 1, size: string | null = null) => {
-    const id = `${product.id}-${size ?? "os"}`;
-    setItems((current) =>
-        current.some((i) => i.id === id)
-            ? current.map((i) => (i.id === id ? { ...i, quantity: i.quantity + quantity } : i))
-            : [...current, { id, product, quantity, size }],
-    );
-  }, []);
-
-  const updateQuantity = useCallback((id: string, quantity: number) => {
-    if (quantity < 1) return;
-    setItems((current) => current.map((i) => (i.id === id ? { ...i, quantity } : i)));
-  }, []);
-
-  const removeItem = useCallback((id: string) => {
-    setItems((current) => current.filter((i) => i.id !== id));
-  }, []);
-
-  const clear = useCallback(() => setItems([]), []);
-
-  const value = useMemo<CartContextValue>(() => {
-    const subtotal = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
-    const shipping = items.length ? SHIPPING_FLAT : 0;
-    return {
-      items,
-      subtotal,
-      shipping,
-      total: subtotal + shipping,
-      count: items.reduce((n, i) => n + i.quantity, 0),
-      hydrated,
-      addItem,
-      updateQuantity,
-      removeItem,
-      clear,
-    };
-  }, [items, hydrated, addItem, updateQuantity, removeItem, clear]);
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
-}
+const SHIPPING_FLAT_RATE = 350
 
 export function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used inside <CartProvider>");
-  return ctx;
+  const queryClient = useQueryClient()
+
+  const { data, isLoading, isFetched } = useQuery({
+    queryKey: ['cart'],
+    queryFn: getCart,
+  })
+
+  const items = data?.items ?? []
+  const subtotal = data?.subtotal ?? 0
+  // Shipping is a flat rate computed client-side — the backend doesn't
+  // calculate it, since it's a display-only estimate, not something
+  // charged/persisted anywhere yet.
+  const shipping = items.length > 0 ? SHIPPING_FLAT_RATE : 0
+  const total = subtotal + shipping
+
+  const addMutation = useMutation({
+    mutationFn: ({
+      product,
+      quantity,
+      size,
+    }: {
+      product: Product
+      quantity: number
+      size: string | null
+    }) => addToCart(product.id, quantity, size),
+    onSuccess: (cart) => queryClient.setQueryData(['cart'], cart),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ itemId, quantity }: { itemId: number; quantity: number }) =>
+      updateCartItem(itemId, quantity),
+    onSuccess: (cart) => queryClient.setQueryData(['cart'], cart),
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: (itemId: number) => removeCartItem(itemId),
+    onSuccess: (cart) => queryClient.setQueryData(['cart'], cart),
+  })
+
+  const addItem = useCallback(
+    (product: Product, quantity = 1, size: string | null = null) => {
+      addMutation.mutate({ product, quantity, size })
+    },
+    [addMutation],
+  )
+
+  const updateQuantity = useCallback(
+    (itemId: number, quantity: number) => {
+      // Dropping to 0 or below removes the line entirely, rather than
+      // sending an invalid quantity the backend's min:1 rule would reject.
+      if (quantity < 1) {
+        removeMutation.mutate(itemId)
+        return
+      }
+      updateMutation.mutate({ itemId, quantity })
+    },
+    [updateMutation, removeMutation],
+  )
+
+  const removeItem = useCallback(
+    (itemId: number) => removeMutation.mutate(itemId),
+    [removeMutation],
+  )
+
+  const clear = useCallback(() => {
+    // The backend already clears the cart server-side as part of
+    // checkout (see OrderController::store) — there's no separate
+    // "clear cart" endpoint to call. This just resets the LOCAL cache to
+    // match what the server already did.
+    queryClient.setQueryData(['cart'], { id: null, items: [], subtotal: 0 })
+  }, [queryClient])
+
+  // Call this right after login/register succeeds — merges whatever the
+  // guest accumulated into the now-authenticated user's real cart.
+  const merge = useCallback(async () => {
+    const cart = await mergeCart()
+    queryClient.setQueryData(['cart'], cart)
+  }, [queryClient])
+
+  return {
+    items,
+    subtotal,
+    shipping,
+    total,
+    isLoading,
+    hydrated: isFetched,
+    addItem,
+    updateQuantity,
+    removeItem,
+    clear,
+    merge,
+  }
 }
