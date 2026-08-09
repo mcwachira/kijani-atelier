@@ -189,7 +189,6 @@ function OrderStatusDialog({
       id: order.id,
       status,
       note: note.trim(),
-      actor: actor.trim(),
     })
   }
 
