@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ordersQuery } from '@/lib/queries'
+import { adminOrdersQuery, ordersQuery } from '@/lib/queries'
 import { ORDER_TRANSITIONS, updateOrderStatus } from '@/lib/api'
 import { formatDate, formatKes } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -55,7 +55,7 @@ export const Route = createFileRoute('/admin/orders')({
 })
 
 function AdminOrders() {
-  const { data, isLoading } = useQuery(ordersQuery())
+  const { data, isLoading } = useQuery(adminOrdersQuery())
   const [active, setActive] = useState<Order | null>(null)
 
   return (
@@ -142,13 +142,12 @@ function OrderStatusDialog({
   const queryClient = useQueryClient()
   const [status, setStatus] = useState<OrderStatus | null>(null)
   const [note, setNote] = useState('')
-  const [actor, setActor] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const mutation = useMutation({
     mutationFn: updateOrderStatus,
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
       queryClient.invalidateQueries({ queryKey: ['order', updated.reference] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success(`${updated.reference} marked ${updated.status}.`)
@@ -238,17 +237,6 @@ function OrderStatusDialog({
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="order-actor">Updated by</Label>
-              <Input
-                id="order-actor"
-                value={actor}
-                onChange={(e) => setActor(e.target.value)}
-                placeholder="Your name (optional)"
-                maxLength={60}
-                className="mt-2"
-              />
-            </div>
 
             <div>
               <Label htmlFor="order-note">

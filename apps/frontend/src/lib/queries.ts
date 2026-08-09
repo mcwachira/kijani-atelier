@@ -41,6 +41,13 @@ export const orderQuery = (reference: string) =>
     queryFn: () => api.getOrderByReference(reference),
   })
 
+
+// GET /admin/orders — EVERY order in the store, admin-only. Distinct
+// from ordersQuery above — an admin viewing the orders dashboard needs
+// to see ALL orders, not just their own personal purchase history.
+export const adminOrdersQuery = () =>
+  queryOptions({ queryKey: ['admin-orders'], queryFn: api.getAdminOrders })
+
 // Fixed: api.getUser doesn't exist — the real function is me(), added
 // back in Phase 2's auth build-out. Rely on this to fetch the CURRENT
 // logged-in user's fresh data from /auth/me, distinct from useAuth()'s

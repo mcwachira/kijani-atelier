@@ -16,6 +16,21 @@ import type {
 import { getOrCreateCartToken } from '@/lib/cart-token'
 
 
+
+// Frontend-only UX guardrail — PATCH /admin/orders/{order}/status accepts
+// ANY status value (see UpdateOrderStatusRequest: just `in:pending,paid,
+// shipped,delivered,cancelled`, no transition logic server-side). This
+// constant exists purely so the admin dialog only offers sensible next
+// steps, not because the API itself enforces any ordering.
+export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  pending: ['paid', 'cancelled'],
+  paid: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: [],
+  cancelled: [],
+}
+
+
 // Base URL for every API call. Falls back to localhost:8080 (our Docker
 // Nginx port from Phase 0) if VITE_API_BASE_URL isn't set in .env.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1'
