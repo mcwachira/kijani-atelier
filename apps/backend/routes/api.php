@@ -12,6 +12,9 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SizeController;
 use App\Http\Controllers\Api\WishlistController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\CustomerController;
 use Illuminate\Support\Facades\Route;
 
 // prefix('v1') — every URL becomes /api/v1/... . Versioning from the very
@@ -134,6 +137,24 @@ Route::prefix('v1')->group(function () {
     });
 
 
+    Route::prefix('payments')->group(function () {
+        Route::post('/mpesa/initiate', [PaymentController::class, 'initiateMpesa']);
+        Route::post('/mpesa/callback', [PaymentController::class, 'mpesaCallback']);
+        Route::get('/{paymentId}/status', [PaymentController::class, 'status']);
+    });
 
+    Route::post('/mpesa/initiate', [PaymentController::class, 'initiateMpesa'])
+        ->middleware('throttle:5,1'); // 5 attempts per minute per IP
+
+
+    Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+        Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+        Route::get('/analytics/sales', [DashboardController::class, 'analytics']);
+        Route::get('/customers', [CustomerController::class, 'index']);
+        Route::get('/customers/{customer}', [CustomerController::class, 'show']);
+    });
 
 });
+
+
+

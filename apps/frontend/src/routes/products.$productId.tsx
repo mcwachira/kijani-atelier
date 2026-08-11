@@ -46,9 +46,13 @@ function ProductPage() {
   const [size, setSize] = useState<string | null>(null)
 
   const { data: related } = useQuery({
-    ...productsQuery({ category: product?.category.slug, per_page: 4 }),
-    enabled: !!product,
+    ...productsQuery({
+      category: product?.category?.slug,   // second ?. added
+      per_page: 4,
+    }),
+    enabled: !!product?.category,           // also guard enabled on category specifically
   })
+  console.log(product);
 
   if (isLoading || !product) {
     return (
