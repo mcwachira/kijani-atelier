@@ -15,9 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         //
 
-        $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
+//        $middleware->api(prepend: [
+//            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+//        ]);
 
         //let routes reference this as ->middleware('admin') instead of the
         //full class path - same pattern Laravel uses for 'auth','verified', etc.

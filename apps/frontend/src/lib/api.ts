@@ -282,7 +282,7 @@ export function getProducts(
 // product detail pages are routed. If you're calling this with a numeric
 // id somewhere, that call site needs to pass the product's slug instead.
 export function getProduct(slug: string): Promise<Product> {
-  return apiFetch<Product>(`/products/${slug}`)
+  return apiFetch<Product>(`/products/${slug}`).then((res) => res.data)
 }
 
 
@@ -546,6 +546,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     recent_orders: recentOrders.slice(0, 6),
   }
 }
+
 export function getSalesAnalytics(
   filters: { from?: string; to?: string; region?: string } = {},
 ): Promise<SalesAnalytics> {
