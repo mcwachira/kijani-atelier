@@ -179,3 +179,9 @@ export interface Message {
   replies: MessageReply[]
   created_at: string
 }
+
+
+export interface PaymentStatus {
+  status: 'pending' | 'completed' | 'failed'
+  order_status: string
+}

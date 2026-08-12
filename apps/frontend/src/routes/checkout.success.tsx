@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
-import { CheckCircle2 } from 'lucide-react'
-
+import { useEffect, useRef, useState } from 'react'
+import { CheckCircle2, Loader2 } from 'lucide-react'
 import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -11,11 +10,16 @@ import { StatusBadge } from '@/features/admin/StatusBadge'
 import { orderQuery } from '@/lib/queries'
 import { useCart } from '@/hooks/use-cart'
 import { formatKes } from '@/lib/format'
+import { verifyPaystackPayment } from '@/lib/api'
 
 export const Route = createFileRoute('/checkout/success')({
   validateSearch: (search: Record<string, unknown>) => ({
     reference:
       typeof search.reference === 'string' ? search.reference : undefined,
+    // Paystack's OWN redirect param — present only when arriving back
+    // from Paystack's hosted checkout, never on an internal navigation
+    // (M-Pesa's flow lands here without ever leaving the site).
+    trxref: typeof search.trxref === 'string' ? search.trxref : undefined,
   }),
   head: () => ({
     meta: [
@@ -38,7 +42,39 @@ export const Route = createFileRoute('/checkout/success')({
 })
 
 function CheckoutSuccessPage() {
-  const { reference } = Route.useSearch()
+  const search = Route.useSearch()
+  const isPaystackReturn = !!search.trxref
+
+  // On a Paystack return, `reference` in the URL is PAYSTACK'S own
+  // transaction reference, not our order reference — recover the real
+  // order reference from where CardPayment stashed it right before
+  // redirecting away. For the M-Pesa/direct-visit path, search.reference
+  // already IS the order reference, same as before.
+  const [reference] = useState<string | undefined>(() =>
+    isPaystackReturn
+      ? (sessionStorage.getItem('kijani_pending_order_reference') ?? undefined)
+      : search.reference,
+  )
+
+  const [verifying, setVerifying] = useState(isPaystackReturn)
+  const [verifyFailed, setVerifyFailed] = useState(false)
+
+  useEffect(() => {
+    if (!isPaystackReturn || !search.reference) {
+      setVerifying(false)
+      return
+    }
+    // search.reference here is PAYSTACK'S transaction reference — the
+    // right value to verify against, distinct from our order reference.
+    verifyPaystackPayment(search.reference)
+      .catch(() => setVerifyFailed(true))
+      .finally(() => {
+        setVerifying(false)
+        sessionStorage.removeItem('kijani_pending_order_reference')
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const {
     data: order,
     isLoading,
@@ -47,7 +83,7 @@ function CheckoutSuccessPage() {
     isFetching,
   } = useQuery({
     ...orderQuery(reference ?? ''),
-    enabled: !!reference,
+    enabled: !!reference && !verifying,
   })
 
   // The bag is cleared here too, so a direct visit or a refresh of the
@@ -60,6 +96,19 @@ function CheckoutSuccessPage() {
     clearedFor.current = reference
     if (items.length) clear()
   }, [reference, hydrated, order, items.length, clear])
+
+  if (verifying) {
+    return (
+      <StoreLayout>
+        <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-24 text-center sm:px-6">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <p className="mt-4 text-sm text-muted-foreground">
+            Confirming your payment…
+          </p>
+        </div>
+      </StoreLayout>
+    )
+  }
 
   return (
     <StoreLayout>
@@ -74,6 +123,12 @@ function CheckoutSuccessPage() {
               ? `Your order ${reference} is confirmed. We'll email you as it moves along.`
               : "Your order is confirmed. We'll email you as it moves along."}
           </p>
+          {verifyFailed && (
+            <p className="mt-2 text-xs text-destructive">
+              We couldn't automatically confirm your card payment — if you were
+              charged, it will reflect on your order shortly.
+            </p>
+          )}
         </div>
 
         {reference && (
@@ -85,7 +140,6 @@ function CheckoutSuccessPage() {
                 <Skeleton className="h-4 w-1/2" />
               </div>
             )}
-
             {isError && (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
@@ -102,7 +156,6 @@ function CheckoutSuccessPage() {
                 </Button>
               </div>
             )}
-
             {order && (
               <>
                 <div className="flex items-center justify-between gap-4">
@@ -115,7 +168,6 @@ function CheckoutSuccessPage() {
                   {order.payment_method === 'mpesa' ? 'M-Pesa' : 'Card'} ·{' '}
                   {order.town}, {order.county}
                 </p>
-
                 <ul className="mt-5 space-y-3">
                   {order.items.map((item, i) => (
                     <li key={i} className="flex justify-between gap-4 text-sm">
@@ -134,7 +186,6 @@ function CheckoutSuccessPage() {
                     </li>
                   ))}
                 </ul>
-
                 <Separator className="my-5" />
                 <div className="flex justify-between text-base font-medium">
                   <span>Total</span>

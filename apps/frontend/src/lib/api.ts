@@ -12,6 +12,7 @@ import type {
   Review,
   SalesAnalytics,
   User,
+  PaymentStatus,
 } from '@/types'
 import { getOrCreateCartToken } from '@/lib/cart-token'
 
@@ -386,6 +387,58 @@ export function mergeCart(): Promise<CartApi> {
     headers: cartHeaders(),
   }).then((res) => res.data)
 }
+
+
+/* --------------------------------- Payments --------------------------------- */
+
+// POST /payments/mpesa/initiate — triggers the STK push. Returns a
+// payment_id used to poll status below, since confirmation arrives
+// asynchronously via M-Pesa's callback, not in this response.
+
+export function initiateMpesaPayment(input: {
+  order_reference: string
+  phone: string
+}): Promise<{ message: string; payment_id: number }> {
+  return apiFetch('/payments/mpesa/initiate', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+// POST /payments/card/initiate — returns a Paystack-hosted checkout URL.
+// Redirect the browser there; Paystack collects card details itself, so
+// no card data ever touches this frontend or your backend directly.
+
+export function initiatePaystackPayment(input: {
+  order_reference: string
+  email: string
+}): Promise<{
+  authorization_url: string
+  reference: string
+  payment_id: number
+}> {
+  return apiFetch('/payments/card/initiate', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+
+// GET /payments/{paymentId}/status — poll this after initiating M-Pesa
+// (or as a fallback after returning from Paystack's redirect) until
+// status moves off 'pending'.
+export function getPaymentStatus(paymentId: number): Promise<PaymentStatus> {
+  return apiFetch(`/payments/${paymentId}/status`)
+}
+
+// GET /payments/card/verify/{reference} — direct verification, used when
+// the customer returns from Paystack's checkout page. Confirms status
+// immediately rather than waiting for the async webhook.
+export function verifyPaystackPayment(reference: string): Promise<PaymentStatus> {
+  return apiFetch(`/payments/card/verify/${reference}`)
+}
+
+
 /* ---------------------------------- Orders ---------------------------------- */
 
 // POST /orders — guest checkout allowed. X-Cart-Token is sent so the
