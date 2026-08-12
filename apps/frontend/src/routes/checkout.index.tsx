@@ -1,9 +1,8 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { CreditCard, Smartphone } from 'lucide-react'
-
+import { CreditCard, Loader2, Smartphone } from 'lucide-react'
 import { StoreLayout } from '@/components/layout/StoreLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,10 +16,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createOrder } from '@/lib/api'
+import {
+  createOrder,
+  getPaymentStatus,
+  initiateMpesaPayment,
+  initiatePaystackPayment,
+  type ApiError,
+} from '@/lib/api'
 import { formatKes } from '@/lib/format'
 import { useCart } from '@/hooks/use-cart'
 import { cn } from '@/lib/utils'
+import type { Order } from '@/types'
 
 const COUNTIES = [
   'Nairobi',
@@ -60,17 +66,17 @@ function CheckoutPage() {
   const [payment, setPayment] = useState<'mpesa' | 'card'>('mpesa')
   const [county, setCounty] = useState('Nairobi')
 
+  // Once the order is created, we stop showing the delivery form and
+  // show the PAYMENT step instead — the order itself isn't "done" until
+  // money has actually moved, so we deliberately don't navigate to
+  // /checkout/success until that happens.
+  const [placedOrder, setPlacedOrder] = useState<Order | null>(null)
+
   const mutation = useMutation({
     mutationFn: createOrder,
     onSuccess: (order) => {
-      clear()
-      toast.success(
-        `Order ${order.reference} placed. We'll be in touch shortly.`,
-      )
-      navigate({
-        to: '/checkout/success',
-        search: { reference: order.reference },
-      })
+      clear() // backend also clears server-side; this keeps local state in sync immediately
+      setPlacedOrder(order)
     },
     onError: () =>
       toast.error("We couldn't place that order. Please try again."),
@@ -99,11 +105,33 @@ function CheckoutPage() {
     })
   }
 
+  // Once an order exists, show the payment step instead of the form.
+  if (placedOrder) {
+    return (
+      <StoreLayout>
+        <div className="mx-auto max-w-lg px-4 py-16 sm:px-6 lg:py-24">
+          <p className="eyebrow">Order {placedOrder.reference}</p>
+          <h1 className="mt-2 font-display text-4xl">Complete payment</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Total due: {formatKes(placedOrder.total)}
+          </p>
+
+          <div className="mt-8">
+            {payment === 'mpesa' ? (
+              <MpesaPayment order={placedOrder} navigate={navigate} />
+            ) : (
+              <CardPayment order={placedOrder} />
+            )}
+          </div>
+        </div>
+      </StoreLayout>
+    )
+  }
+
   return (
     <StoreLayout>
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <h1 className="font-display text-4xl lg:text-5xl">Checkout</h1>
-
         <form
           onSubmit={submit}
           className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_22rem]"
@@ -166,7 +194,6 @@ function CheckoutPage() {
                 </div>
               </div>
             </section>
-
             <section>
               <h2 className="eyebrow">Payment</h2>
               <RadioGroup
@@ -213,7 +240,6 @@ function CheckoutPage() {
               </RadioGroup>
             </section>
           </div>
-
           <aside className="h-fit rounded-lg border border-border bg-card p-6 shadow-(--shadow-soft)">
             <h2 className="font-display text-xl">Order summary</h2>
             <ul className="mt-5 space-y-4">
@@ -275,5 +301,193 @@ function CheckoutPage() {
         </form>
       </div>
     </StoreLayout>
+  )
+}
+
+/**
+ * M-Pesa step — collects a phone number, triggers the STK push, then
+ * polls GET /payments/{paymentId}/status every 3s until the async
+ * callback resolves it to completed/failed, or ~2 minutes elapse.
+ */
+function MpesaPayment({
+  order,
+  navigate,
+}: {
+  order: Order
+  navigate: ReturnType<typeof useNavigate>
+}) {
+  const [phone, setPhone] = useState('')
+  const [paymentId, setPaymentId] = useState<number | null>(null)
+  const [phase, setPhase] = useState<
+    'idle' | 'submitting' | 'waiting' | 'failed' | 'timedout'
+  >('idle')
+  const attempts = useRef(0)
+
+  useEffect(() => {
+    if (!paymentId || phase !== 'waiting') return
+    let cancelled = false
+
+    const poll = async () => {
+      if (cancelled) return
+      try {
+        const result = await getPaymentStatus(paymentId)
+        if (cancelled) return
+
+        if (result.status === 'completed') {
+          navigate({
+            to: '/checkout/success',
+            search: { reference: order.reference },
+          })
+          return
+        }
+        if (result.status === 'failed') {
+          setPhase('failed')
+          return
+        }
+
+        attempts.current += 1
+        if (attempts.current >= 40) {
+          setPhase('timedout')
+          return
+        }
+        setTimeout(poll, 3000)
+      } catch {
+        if (!cancelled) setTimeout(poll, 3000)
+      }
+    }
+
+    poll()
+    return () => {
+      cancelled = true
+    }
+  }, [paymentId, phase, navigate, order.reference])
+
+  const initiate = async () => {
+    if (!/^(0|\+?254)[71]\d{8}$/.test(phone)) {
+      toast.error('Enter a valid M-Pesa phone number.')
+      return
+    }
+    setPhase('submitting')
+    try {
+      const res = await initiateMpesaPayment({
+        order_reference: order.reference,
+        phone,
+      })
+      setPaymentId(res.payment_id)
+      attempts.current = 0
+      setPhase('waiting')
+      toast.success('Check your phone to complete payment.')
+    } catch (err) {
+      toast.error(
+        (err as ApiError).message || 'Could not start M-Pesa payment.',
+      )
+      setPhase('idle')
+    }
+  }
+
+  if (phase === 'waiting') {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card py-10 text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+        <p className="text-sm font-medium">Check your phone</p>
+        <p className="text-xs text-muted-foreground">
+          Enter your M-Pesa PIN to complete payment.
+        </p>
+      </div>
+    )
+  }
+
+  if (phase === 'failed' || phase === 'timedout') {
+    return (
+      <div className="rounded-lg border border-border bg-card p-6 text-center">
+        <p className="text-sm text-destructive">
+          {phase === 'timedout'
+            ? 'This took too long — please try again.'
+            : 'Payment was not completed.'}
+        </p>
+        <Button
+          className="mt-4 w-full"
+          variant="outline"
+          onClick={() => {
+            setPhase('idle')
+            setPaymentId(null)
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-6">
+      <Label htmlFor="mpesa-phone">M-Pesa phone number</Label>
+      <Input
+        id="mpesa-phone"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        placeholder="0712345678"
+        className="mt-1.5"
+      />
+      <Button
+        className="mt-4 w-full"
+        onClick={initiate}
+        disabled={phase === 'submitting'}
+      >
+        {phase === 'submitting'
+          ? 'Sending prompt…'
+          : `Pay ${formatKes(order.total)} via M-Pesa`}
+      </Button>
+    </div>
+  )
+}
+
+/**
+ * Card step — redirects the whole browser to Paystack's hosted checkout
+ * page. Card details are entered there, never on this site (required
+ * for PCI compliance). Paystack redirects back to /checkout/success
+ * afterward, which verifies the transaction directly.
+ */
+function CardPayment({ order }: { order: Order }) {
+  const [email, setEmail] = useState(order.email ?? '')
+  const [submitting, setSubmitting] = useState(false)
+
+  const initiate = async () => {
+    if (!email.includes('@')) {
+      toast.error('Enter a valid email for your card receipt.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await initiatePaystackPayment({
+        order_reference: order.reference,
+        email,
+      })
+      // Paystack's redirect back appends ITS OWN ?reference=&trxref=
+      // params, overwriting whatever "reference" means to this app.
+      // Stash the real order reference here so /checkout/success can
+      // recover it regardless of what Paystack's redirect URL looks like.
+      sessionStorage.setItem('kijani_pending_order_reference', order.reference)
+      window.location.href = res.authorization_url
+    } catch (err) {
+      toast.error((err as ApiError).message || 'Could not start card payment.')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-6">
+      <Label htmlFor="card-email">Email (for your receipt)</Label>
+      <Input
+        id="card-email"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="mt-1.5"
+      />
+      <Button className="mt-4 w-full" onClick={initiate} disabled={submitting}>
+        {submitting ? 'Redirecting…' : `Pay ${formatKes(order.total)} by card`}
+      </Button>
+    </div>
   )
 }
