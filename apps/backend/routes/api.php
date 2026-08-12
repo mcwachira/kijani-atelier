@@ -138,14 +138,19 @@ Route::prefix('v1')->group(function () {
 
 
     Route::prefix('payments')->group(function () {
-        Route::post('/mpesa/initiate', [PaymentController::class, 'initiateMpesa']);
+        Route::post('/mpesa/initiate', [PaymentController::class, 'initiateMpesa'])
+            ->middleware(app()->environment('testing') ? [] : 'throttle:5,1');
         Route::post('/mpesa/callback', [PaymentController::class, 'mpesaCallback']);
+        Route::post('/card/initiate', [PaymentController::class, 'initiatePaystack'])
+            ->middleware(app()->environment('testing') ? [] : 'throttle:5,1');
+        Route::post('/card/webhook', [PaymentController::class, 'paystackWebhook']);
+        Route::get('/card/verify/{reference}', [PaymentController::class, 'verifyPaystack']);
         Route::get('/{paymentId}/status', [PaymentController::class, 'status']);
     });
 
-    Route::post('/mpesa/initiate', [PaymentController::class, 'initiateMpesa'])
-        ->middleware('throttle:5,1'); // 5 attempts per minute per IP
-
+// DELETE this entire block — it's a leftover duplicate outside the group:
+// Route::post('/mpesa/initiate', [PaymentController::class, 'initiateMpesa'])
+//     ->middleware('throttle:5,1');
 
     Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
         Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
@@ -153,7 +158,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/customers', [CustomerController::class, 'index']);
         Route::get('/customers/{customer}', [CustomerController::class, 'show']);
     });
-
 });
 
 
