@@ -37,6 +37,13 @@ class ReviewController extends Controller
      */
     public function store(StoreReviewRequest $request, Product $product)
     {
+
+        // Defensive check — the route's auth:sanctum middleware should
+        // always guarantee a user here, but this makes the controller
+        // itself safe even if that middleware were ever misconfigured or
+        // removed, rather than relying entirely on routing to prevent a
+        // null-pointer 500.
+        abort_unless($request->user(), 401);
         $review = Review::create([
             'product_id' => $product->id,
             'user_id' => $request->user()->id,
