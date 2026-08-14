@@ -41,7 +41,6 @@ export const orderQuery = (reference: string) =>
     queryFn: () => api.getOrderByReference(reference),
   })
 
-
 // GET /admin/orders — EVERY order in the store, admin-only. Distinct
 // from ordersQuery above — an admin viewing the orders dashboard needs
 // to see ALL orders, not just their own personal purchase history.
@@ -80,3 +79,11 @@ export const messagesQuery = () =>
 // If you need a "my messages" feature for logged-in customers later,
 // that would need a NEW backend endpoint first (e.g. GET /my-messages),
 // not something addable purely on the frontend.
+export const customersQuery = () =>
+  queryOptions({ queryKey: ['admin-customers'], queryFn: api.getCustomers })
+
+export const customerQuery = (id: number) =>
+  queryOptions({
+    queryKey: ['admin-customer', id],
+    queryFn: () => api.getCustomer(id),
+  })

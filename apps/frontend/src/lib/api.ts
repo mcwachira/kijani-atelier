@@ -13,6 +13,8 @@ import type {
   SalesAnalytics,
   User,
   PaymentStatus,
+  RawPaginated,
+  AdminCustomer,
 } from '@/types'
 import { getOrCreateCartToken } from '@/lib/cart-token'
 
@@ -694,6 +696,23 @@ export function updateProduct(id: number, input: Partial<ProductInput>): Promise
 // DELETE /products/{product}
 export function deleteProduct(id: number): Promise<{ message: string }> {
   return apiFetch<{ message: string }>(`/products/${id}`, { method: 'DELETE' })
+}
+
+
+/* ---------------------------------- Admin: customers ------------------------------ */
+
+export function getCustomers(): Promise<RawPaginated<AdminCustomer>> {
+  return apiFetch<{ data: RawPaginated<AdminCustomer> }>(
+    '/admin/customers',
+  ).then((res) => res.data)
+}
+
+export function getCustomer(
+  id: number,
+): Promise<AdminCustomer & { orders: Order[] }> {
+  return apiFetch<{ data: AdminCustomer & { orders: Order[] } }>(
+    `/admin/customers/${id}`,
+  ).then((res) => res.data)
 }
 
 /* ------------------------------ Account access ------------------------------ */
