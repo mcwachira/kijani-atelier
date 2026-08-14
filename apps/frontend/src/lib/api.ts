@@ -613,34 +613,20 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 }
 
+// GET /admin/analytics/sales — real backend endpoint (DashboardController::analytics()).
+// Supports filtering by region via query param; `from`/`to` date filters
+// aren't implemented server-side yet, so they're accepted here for API
+// shape compatibility but currently have no effect — flagging so this
+// isn't mistaken for a working filter if you wire up date pickers later.
 export function getSalesAnalytics(
   filters: { from?: string; to?: string; region?: string } = {},
 ): Promise<SalesAnalytics> {
-  const regions = [
-    'Nairobi',
-    'Mombasa',
-    'Kisumu',
-    'Nakuru',
-    'Kiambu',
-    'Machakos',
-    'Eldoret',
-  ]
-  const by_region = regions.map((region, i) => ({
-    region,
-    sales: 420_000 - i * 48_000,
-    orders: 128 - i * 14,
-  }))
-  return mock({
-    by_region: filters.region
-      ? by_region.filter((r) => r.region === filters.region)
-      : by_region,
-    by_month: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'].map((month, i) => ({
-      month,
-      revenue: 190_000 + i * 55_000,
-    })),
-    // top_products left empty for the same reason as recent_orders above.
-    top_products: [],
-  })
+  const query = new URLSearchParams()
+  if (filters.region) query.set('region', filters.region)
+
+  return apiFetch<{ data: SalesAnalytics }>(`/admin/analytics/sales?${query.toString()}`).then(
+    (res) => res.data,
+  )
 }
 
 
