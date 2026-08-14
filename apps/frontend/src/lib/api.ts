@@ -249,8 +249,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
-const mock = <T>(value: T, delay = 350): Promise<T> =>
-  new Promise((resolve) => setTimeout(() => resolve(value), delay))
+// const mock = <T>(value: T, delay = 350): Promise<T> =>
+//   new Promise((resolve) => setTimeout(() => resolve(value), delay))
 
 /* ---------------------------------- Catalog --------------------------------- */
 
@@ -596,21 +596,9 @@ export function markMessageRead(id: number): Promise<Message> {
 /* ---------------------------------- Admin ----------------------------------- */
 
 // GET /admin/dashboard
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const recentOrders = await getAdminOrders()
-  const months = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
-  return {
-    total_sales: 2_486_500, // still a placeholder — no real revenue-aggregation endpoint yet
-    orders_count: recentOrders.length,
-    customers_count: 486,
-    average_order_value: 8_950,
-    revenue_series: months.map((month, i) => ({
-      month,
-      revenue: 210_000 + i * 62_000 + (i % 2 ? 34_000 : 0),
-      orders: 24 + i * 7,
-    })),
-    recent_orders: recentOrders.slice(0, 6),
-  }
+// GET /admin/dashboard/stats — real backend endpoint (DashboardController::stats()).
+export function getDashboardStats(): Promise<DashboardStats> {
+  return apiFetch<{ data: DashboardStats }>('/admin/dashboard/stats').then((res) => res.data)
 }
 
 // GET /admin/analytics/sales — real backend endpoint (DashboardController::analytics()).
