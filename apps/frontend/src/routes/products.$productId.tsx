@@ -160,17 +160,17 @@ function ProductPage() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {product.sizes.map((s) => (
                     <button
-                      key={s}
+                      key={s.id}
                       type="button"
-                      onClick={() => setSize(s)}
+                      onClick={() => setSize(s.value)}
                       className={cn(
                         'h-11 w-11 rounded-md border text-sm transition-colors',
-                        size === s
+                        size === s.value
                           ? 'border-accent bg-accent text-accent-foreground'
                           : 'border-border hover:border-foreground/40',
                       )}
                     >
-                      {s}
+                      {s.value}
                     </button>
                   ))}
                 </div>
@@ -208,7 +208,7 @@ function ProductPage() {
                 <div>
                   <dt className="font-medium">Materials</dt>
                   <dd className="capitalize text-muted-foreground">
-                    {product.materials.join(', ')}
+                    {product.materials.map((m) => m.name).join(', ')}
                   </dd>
                 </div>
               </div>

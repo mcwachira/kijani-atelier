@@ -1,5 +1,15 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Heart, Menu, Search, ShoppingBag, User, LogOut, Package, Minus, Plus, Trash2 } from 'lucide-react'
+import {
+  Heart,
+  Menu,
+  ShoppingBag,
+  User,
+  LogOut,
+  Package,
+  Minus,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,7 +32,7 @@ import { useCart } from '@/hooks/use-cart'
 import { useAuth } from '@/hooks/use-auth'
 import { logout as logoutApi } from '@/lib/api'
 import { formatKes } from '@/lib/format'
-import { GlobalSearch } from '../GlobalSearch.tsx'
+import { MobileSearchTrigger } from '../GlobalSearch.tsx'
 
 const NAV_LINKS = [
   { to: '/shop', label: 'Shop' },
@@ -117,7 +127,6 @@ export function Navbar() {
   const { items: cartItems } = useCart()
   const { user, isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
-  const [searchOpen, setSearchOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
 
@@ -222,9 +231,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" aria-label="Search" onClick={() => setSearchOpen(true)}>
-            <Search className="h-5 w-5" />
-          </Button>
+          <MobileSearchTrigger />
 
           <Button variant="ghost" size="icon" asChild className="relative" aria-label="Wishlist">
             <Link to="/wishlist">
@@ -284,7 +291,6 @@ export function Navbar() {
         </div>
       </div>
 
-      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   )
 }

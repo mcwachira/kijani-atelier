@@ -20,7 +20,7 @@ export const productsQuery = (params: ProductQueryParams = {}) =>
 export const productQuery = (id: number | string) =>
   queryOptions({
     queryKey: ['product', String(id)],
-    queryFn: () => api.getProduct(id),
+    queryFn: () => api.getProduct(String(id)),
   })
 
 export const categoriesQuery = () =>
