@@ -35,8 +35,8 @@ export interface Product {
   category: Category
   description: string
   craft_note: string
-  materials: Material[] // now string[] under the hood, since Material = string
-  sizes: string[]
+  materials: { id: number; name: string }[]
+  sizes: { id: number; value: string }[]
   images: string[]
   stock: number
   rating: number

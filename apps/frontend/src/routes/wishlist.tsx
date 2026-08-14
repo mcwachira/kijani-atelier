@@ -104,7 +104,7 @@ function WishlistPage(){
               >
                 <Link
                   to="/products/$productId"
-                  params={{ productId:item.product.slug }}
+                  params={{ productId: item.product.slug }}
                 >
                   <img
                     src={item.product.images[0]}
@@ -134,23 +134,23 @@ function WishlistPage(){
                       <div className="mt-2 flex flex-wrap gap-2">
                         {item.product.sizes.map((s) => (
                           <button
-                            key={s}
+                            key={s.id}
                             type="button"
                             onClick={() =>
                               setSize(
                                 item.product.id,
-                                item.size === s ? null : s,
+                                item.size === s.value ? null : s.value,
                               )
                             }
-                            aria-pressed={item.size === s}
+                            aria-pressed={item.size === s.value}
                             className={cn(
                               'h-9 w-9 rounded-md border text-xs transition-colors',
-                              item.size === s
+                              item.size === s.value
                                 ? 'border-accent bg-accent text-accent-foreground'
                                 : 'border-border hover:border-foreground/40',
                             )}
                           >
-                            {s}
+                            {s.value}
                           </button>
                         ))}
                       </div>

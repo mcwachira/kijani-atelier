@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { getPaymentStatus, type PaymentStatus } from '@/lib/api'
+import type { PaymentStatus } from '@/types'
+import { getPaymentStatus } from '@/lib/api.ts'
 
 
 /**

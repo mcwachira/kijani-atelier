@@ -26,7 +26,6 @@ it('returns dashboard stats computed from real order data', function () {
         ->getJson('/api/v1/admin/dashboard/stats');
 
 
-    dump($response->json());
     $response->assertStatus(200);
     expect($response->json('data.total_sales'))->toBe(8000); // 5000 + 3000, cancelled excluded
     expect($response->json('data.orders_count'))->toBe(3); // count includes ALL orders, per current implementation

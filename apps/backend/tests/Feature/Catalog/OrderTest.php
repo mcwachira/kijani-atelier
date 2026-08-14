@@ -147,3 +147,37 @@ it('lets an admin update an order status and records a status event', function (
         'to_status' => 'paid',
     ]);
 });
+
+it('lets an admin move an order through valid transitions', function () {
+    [, $adminToken] = actingAsAdmin();
+    $order = Order::factory()->create();
+    $order->forceFill(['status' => 'pending'])->save();
+
+    $this->withHeader('Authorization', "Bearer {$adminToken}")
+        ->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'paid'])
+        ->assertStatus(200)
+        ->assertJsonPath('data.status', 'paid');
+});
+
+it('rejects an invalid order status transition', function () {
+    [, $adminToken] = actingAsAdmin();
+    $order = Order::factory()->create();
+    $order->forceFill(['status' => 'cancelled'])->save();
+
+    // cancelled -> paid is not a valid transition per Order::validTransitions()
+    $this->withHeader('Authorization', "Bearer {$adminToken}")
+        ->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'paid'])
+        ->assertStatus(422);
+
+    expect($order->fresh()->status)->toBe('cancelled'); // unchanged
+});
+
+it('rejects skipping straight from pending to delivered', function () {
+    [, $adminToken] = actingAsAdmin();
+    $order = Order::factory()->create();
+    $order->forceFill(['status' => 'pending'])->save();
+
+    $this->withHeader('Authorization', "Bearer {$adminToken}")
+        ->patchJson("/api/v1/admin/orders/{$order->id}/status", ['status' => 'delivered'])
+        ->assertStatus(422);
+});

@@ -33,7 +33,7 @@ export function PaymentPanel({ order }: { order: Order }) {
   if (status?.status === 'completed') {
     navigate({
       to: '/checkout/success',
-      search: { reference: order.reference },
+      search: { reference: order.reference, trxref: undefined },
     })
   }
 

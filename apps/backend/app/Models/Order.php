@@ -38,4 +38,29 @@ public function payments():HasMany
 {
     return $this-> hasMany(Payment::class);
 }
+
+    /**
+     * Defines which status transitions are actually valid. Mirrors the
+     * frontend's ORDER_TRANSITIONS UX guardrail in lib/api.ts, but THIS is
+     * the version that's actually enforced — the frontend one only shapes
+     * which buttons are shown, it was never a real guarantee.
+     */
+
+    public static function validTransitions():array
+    {
+        return [
+            'pending' => ['paid', 'cancelled'],
+            'paid' => ['shipped', 'cancelled'],
+            'shipped' => ['delivered'],
+            'delivered' => [],
+            'cancelled' => [],
+        ];
+    }
+
+
+    public function canTransitionTo(string $newStatus): bool
+    {
+        return in_array($newStatus, self::validTransitions()[$this->status] ?? [], true);
+    }
+
 }

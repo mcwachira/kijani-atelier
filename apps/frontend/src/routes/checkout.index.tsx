@@ -336,7 +336,7 @@ function MpesaPayment({
         if (result.status === 'completed') {
           navigate({
             to: '/checkout/success',
-            search: { reference: order.reference },
+            search: { reference: order.reference, trxref: undefined },
           })
           return
         }

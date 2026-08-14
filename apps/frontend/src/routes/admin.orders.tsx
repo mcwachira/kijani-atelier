@@ -11,7 +11,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import {
   Dialog,
@@ -29,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { adminOrdersQuery, ordersQuery } from '@/lib/queries'
+import { adminOrdersQuery } from '@/lib/queries'
 import { ORDER_TRANSITIONS, updateOrderStatus } from '@/lib/api'
 import { formatDate, formatKes } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -153,7 +152,6 @@ function OrderStatusDialog({
       toast.success(`${updated.reference} marked ${updated.status}.`)
       setStatus(null)
       setNote('')
-      setActor('')
       setError(null)
     },
     onError: (e: Error) => setError(e.message),
@@ -162,7 +160,6 @@ function OrderStatusDialog({
   useEffect(() => {
     setStatus(null)
     setNote('')
-    setActor('')
     setError(null)
   }, [order?.id])
 

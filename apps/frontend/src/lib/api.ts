@@ -103,7 +103,7 @@ async function apiFetch<T>(
     // respond with an HTML error page instead of JSON for certain errors,
     // which would break this function's response.json() call below.
     Accept: 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   }
   // Attach the bearer token to every authenticated request automatically —
   // callers of authApi.me(), authApi.logout(), etc. never have to
@@ -283,7 +283,9 @@ export function getProducts(
 // product detail pages are routed. If you're calling this with a numeric
 // id somewhere, that call site needs to pass the product's slug instead.
 export function getProduct(slug: string): Promise<Product> {
-  return apiFetch<Product>(`/products/${slug}`).then((res) => res.data)
+  return apiFetch<{ data: Product }>(`/products/${slug}`).then(
+    (res) => res.data,
+  )
 }
 
 
@@ -488,6 +490,17 @@ export function updateOrderStatus(input: {
 
 
 /* ---------------------------------- Reviews --------------------------------- */
+
+
+// GET /products/{product}/reviews — public, no login required.
+// NOTE: the backend's route-model binding is by the product's numeric ID
+// here, NOT its slug (unlike GET /products/{slug} for the product itself)
+// — see ReviewController::index(Product $product). Pass product.id, not
+// product.slug, when calling this.
+export function getReviews(productId: number | string): Promise<Review[]> {
+  return apiFetch<{ data: Review[] }>(`/products/${productId}/reviews`).then((res) => res.data)
+}
+
 
 // POST /products/{product}/reviews — REQUIRES LOGIN now (401 for guests).
 // `author` is no longer sent — the backend takes it from the logged-in
