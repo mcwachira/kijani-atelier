@@ -489,6 +489,17 @@ export function updateOrderStatus(input: {
 
 /* ---------------------------------- Reviews --------------------------------- */
 
+
+// GET /products/{product}/reviews — public, no login required.
+// NOTE: the backend's route-model binding is by the product's numeric ID
+// here, NOT its slug (unlike GET /products/{slug} for the product itself)
+// — see ReviewController::index(Product $product). Pass product.id, not
+// product.slug, when calling this.
+export function getReviews(productId: number | string): Promise<Review[]> {
+  return apiFetch<{ data: Review[] }>(`/products/${productId}/reviews`).then((res) => res.data)
+}
+
+
 // POST /products/{product}/reviews — REQUIRES LOGIN now (401 for guests).
 // `author` is no longer sent — the backend takes it from the logged-in
 // user's own account name, so it can't be spoofed. ProductReviews.tsx's
