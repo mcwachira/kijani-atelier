@@ -205,3 +205,25 @@ it('reports payment and order status via the polling endpoint', function () {
         ->assertStatus(200)
         ->assertJson(['status' => 'completed', 'order_status' => 'paid']);
 });
+
+
+it('accepts a callback from an allowlisted IP when verification is enabled', function () {
+    config(['mpesa.verify_callback_ip' => true, 'mpesa.allowed_callback_ips' => ['127.0.0.1']]);
+
+    $order = Order::factory()->create();
+    $payment = Payment::factory()->create(['order_id' => $order->id, 'checkout_request_id' => 'ws_CO_ip_ok']);
+    $payment->forceFill(['status' => 'pending'])->save();
+
+    $this->postJson('/api/v1/payments/mpesa/callback', [
+        'Body' => ['stkCallback' => ['CheckoutRequestID' => 'ws_CO_ip_ok', 'ResultCode' => 0]],
+    ])->assertStatus(200); // Pest's test client requests from 127.0.0.1 by default
+});
+
+
+it('rejects a callback from a non-allowlisted IP when verification is enabled', function () {
+    config(['mpesa.verify_callback_ip' => true, 'mpesa.allowed_callback_ips' => ['196.201.214.200']]);
+
+    $this->postJson('/api/v1/payments/mpesa/callback', [
+        'Body' => ['stkCallback' => ['CheckoutRequestID' => 'anything', 'ResultCode' => 0]],
+    ])->assertStatus(403);
+});

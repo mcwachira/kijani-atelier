@@ -140,7 +140,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('payments')->group(function () {
         Route::post('/mpesa/initiate', [PaymentController::class, 'initiateMpesa'])
             ->middleware(app()->environment('testing') ? [] : 'throttle:5,1');
-        Route::post('/mpesa/callback', [PaymentController::class, 'mpesaCallback']);
+        Route::post('/mpesa/callback', [PaymentController::class, 'mpesaCallback'])
+            ->middleware('verify.mpesa.ip');
         Route::post('/card/initiate', [PaymentController::class, 'initiatePaystack'])
             ->middleware(app()->environment('testing') ? [] : 'throttle:5,1');
         Route::post('/card/webhook', [PaymentController::class, 'paystackWebhook']);
