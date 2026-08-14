@@ -16,6 +16,14 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function () {
+        // Clears whatever cache store is actually active — including
+        // rate-limiter counters — before EVERY test. This makes tests
+        // immune to throttle state leaking in from a previous test or a
+        // previous `make test` run, regardless of which cache driver
+        // .env.testing actually resolves to.
+        Cache::flush();
+    })
     ->in('Feature');
 
 
