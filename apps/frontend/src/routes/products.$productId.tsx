@@ -19,27 +19,64 @@ import { useCart } from '@/hooks/use-cart'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/products/$productId')({
-  head: () => ({
-    meta: [
-      { title: 'Product — Kijani Atelier' },
-      {
-        name: 'description',
-        content:
-          'Handcrafted piece made in small batches by artisans in Kenya.',
-      },
-      { property: 'og:title', content: 'Product — Kijani Atelier' },
-      {
-        property: 'og:description',
-        content:
-          'Handcrafted piece made in small batches by artisans in Kenya.',
-      },
-    ],
-  }),
+  // Runs on the SERVER before the page renders — this is what actually
+  // fixes the SEO gap. Without a loader, useQuery only fetches
+  // client-side AFTER hydration, so a crawler sees the Skeleton
+  // fallback, never the real product content, in the initial HTML.
+  loader: async ({ params, context }) => {
+    const product = await context.queryClient.ensureQueryData(
+      productQuery(params.productId),
+    )
+    return { product }
+  },
+
+  // head() now runs AFTER the loader, so it has access to loaderData —
+  // this makes the <title>/description/og tags PRODUCT-SPECIFIC instead
+  // of the old static, generic copy repeated on every product page.
+  head: ({ loaderData }) => {
+    const product = loaderData?.product
+    return {
+      meta: [
+        {
+          title: product
+            ? `${product.name} — Kijani Atelier`
+            : 'Product — Kijani Atelier',
+        },
+        {
+          name: 'description',
+          content:
+            product?.description ??
+            'Handcrafted piece made in small batches by artisans in Kenya.',
+        },
+        {
+          property: 'og:title',
+          content: product
+            ? `${product.name} — Kijani Atelier`
+            : 'Product — Kijani Atelier',
+        },
+        {
+          property: 'og:description',
+          content:
+            product?.description ??
+            'Handcrafted piece made in small batches by artisans in Kenya.',
+        },
+        ...(product?.images?.[0]
+          ? [{ property: 'og:image', content: product.images[0] }]
+          : []),
+      ],
+    }
+  },
+
   component: ProductPage,
 })
 
+
 function ProductPage() {
   const { productId } = Route.useParams()
+  // useQuery still works exactly as before for CLIENT-SIDE refetching/
+  // caching — but since the loader already populated the QueryClient's
+  // cache via ensureQueryData, this resolves INSTANTLY on first render,
+  // no loading flash, no skeleton, because the data's already there.
   const { data: product, isLoading } = useQuery(productQuery(productId))
   const { addItem } = useCart()
   const [activeImage, setActiveImage] = useState(0)
