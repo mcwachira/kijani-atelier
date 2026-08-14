@@ -173,6 +173,13 @@ class OrderController extends Controller
     public function updateStatus(UpdateOrderStatusRequest $request, Order $order)
     {
         $data = $request->validated();
+
+        if (! $order->canTransitionTo($data['status'])) {
+            return response()->json([
+                'message' => "Cannot change status from '{$order->status}' to '{$data['status']}'.",
+            ], 422);
+        }
+
         $previousStatus = $order->status;
 
         $order->forceFill(['status' => $data['status']])->save();
