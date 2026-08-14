@@ -27,7 +27,7 @@ it('initializes a Paystack transaction for a valid order', function () {
         'email' => 'customer@example.com',
     ]);
 
-    dump($response->status(), $response->json()); // TEMPORARY DEBUGsss
+
     $response->assertStatus(202)
         ->assertJsonStructure(['authorization_url', 'reference']);
 
