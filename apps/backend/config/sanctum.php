@@ -50,7 +50,11 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Was `null` (tokens never expire) — combined with no rate limiting
+    // on /auth/login, a leaked or brute-forced token stayed valid
+    // forever. Now expires after 30 days by default; override with
+    // SANCTUM_EXPIRATION_MINUTES if a different lifetime is needed.
+    'expiration' => env('SANCTUM_EXPIRATION_MINUTES', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------
