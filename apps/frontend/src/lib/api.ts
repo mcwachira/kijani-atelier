@@ -13,6 +13,8 @@ import type {
   SalesAnalytics,
   User,
   PaymentStatus,
+  RawPaginated,
+  AdminCustomer,
 } from '@/types'
 import { getOrCreateCartToken } from '@/lib/cart-token'
 
@@ -249,8 +251,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
-const mock = <T>(value: T, delay = 350): Promise<T> =>
-  new Promise((resolve) => setTimeout(() => resolve(value), delay))
+// const mock = <T>(value: T, delay = 350): Promise<T> =>
+//   new Promise((resolve) => setTimeout(() => resolve(value), delay))
 
 /* ---------------------------------- Catalog --------------------------------- */
 
@@ -596,51 +598,25 @@ export function markMessageRead(id: number): Promise<Message> {
 /* ---------------------------------- Admin ----------------------------------- */
 
 // GET /admin/dashboard
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const recentOrders = await getAdminOrders()
-  const months = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
-  return {
-    total_sales: 2_486_500, // still a placeholder — no real revenue-aggregation endpoint yet
-    orders_count: recentOrders.length,
-    customers_count: 486,
-    average_order_value: 8_950,
-    revenue_series: months.map((month, i) => ({
-      month,
-      revenue: 210_000 + i * 62_000 + (i % 2 ? 34_000 : 0),
-      orders: 24 + i * 7,
-    })),
-    recent_orders: recentOrders.slice(0, 6),
-  }
+// GET /admin/dashboard/stats — real backend endpoint (DashboardController::stats()).
+export function getDashboardStats(): Promise<DashboardStats> {
+  return apiFetch<{ data: DashboardStats }>('/admin/dashboard/stats').then((res) => res.data)
 }
 
+// GET /admin/analytics/sales — real backend endpoint (DashboardController::analytics()).
+// Supports filtering by region via query param; `from`/`to` date filters
+// aren't implemented server-side yet, so they're accepted here for API
+// shape compatibility but currently have no effect — flagging so this
+// isn't mistaken for a working filter if you wire up date pickers later.
 export function getSalesAnalytics(
   filters: { from?: string; to?: string; region?: string } = {},
 ): Promise<SalesAnalytics> {
-  const regions = [
-    'Nairobi',
-    'Mombasa',
-    'Kisumu',
-    'Nakuru',
-    'Kiambu',
-    'Machakos',
-    'Eldoret',
-  ]
-  const by_region = regions.map((region, i) => ({
-    region,
-    sales: 420_000 - i * 48_000,
-    orders: 128 - i * 14,
-  }))
-  return mock({
-    by_region: filters.region
-      ? by_region.filter((r) => r.region === filters.region)
-      : by_region,
-    by_month: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'].map((month, i) => ({
-      month,
-      revenue: 190_000 + i * 55_000,
-    })),
-    // top_products left empty for the same reason as recent_orders above.
-    top_products: [],
-  })
+  const query = new URLSearchParams()
+  if (filters.region) query.set('region', filters.region)
+
+  return apiFetch<{ data: SalesAnalytics }>(`/admin/analytics/sales?${query.toString()}`).then(
+    (res) => res.data,
+  )
 }
 
 
@@ -720,6 +696,23 @@ export function updateProduct(id: number, input: Partial<ProductInput>): Promise
 // DELETE /products/{product}
 export function deleteProduct(id: number): Promise<{ message: string }> {
   return apiFetch<{ message: string }>(`/products/${id}`, { method: 'DELETE' })
+}
+
+
+/* ---------------------------------- Admin: customers ------------------------------ */
+
+export function getCustomers(): Promise<RawPaginated<AdminCustomer>> {
+  return apiFetch<{ data: RawPaginated<AdminCustomer> }>(
+    '/admin/customers',
+  ).then((res) => res.data)
+}
+
+export function getCustomer(
+  id: number,
+): Promise<AdminCustomer & { orders: Order[] }> {
+  return apiFetch<{ data: AdminCustomer & { orders: Order[] } }>(
+    `/admin/customers/${id}`,
+  ).then((res) => res.data)
 }
 
 /* ------------------------------ Account access ------------------------------ */

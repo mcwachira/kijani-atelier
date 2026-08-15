@@ -20,20 +20,17 @@ const STEPS: { status: OrderStatus; label: string; icon: typeof Package }[] = [
 ]
 
 export const Route = createFileRoute('/orders/$reference')({
-  head: () => ({
+  loader: async ({ params, context }) => {
+    const order = await context.queryClient.ensureQueryData(
+      orderQuery(params.reference),
+    )
+    return { order }
+  },
+
+  head: ({ params }) => ({
     meta: [
-      { title: 'Order Confirmation — Kijani Atelier' },
-      {
-        name: 'description',
-        content:
-          'Your order summary, delivery details and current fulfilment status.',
-      },
-      { property: 'og:title', content: 'Order Confirmation — Kijani Atelier' },
-      {
-        property: 'og:description',
-        content: 'Your Kijani Atelier order summary and status.',
-      },
-      { name: 'robots', content: 'noindex' },
+      { title: `Order ${params.reference} — Kijani Atelier` },
+      { name: 'robots', content: 'noindex' }, // unchanged — correctly private, per the audit's own note
     ],
   }),
   component: OrderConfirmationPage,

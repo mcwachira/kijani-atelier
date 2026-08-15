@@ -60,14 +60,13 @@ class DashboardController extends Controller
 
     public function analytics(\Illuminate\Http\Request $request)
     {
-
-        $byRegionQuery =Order::query()
+        $byRegionQuery = Order::query()
             ->where('status', '!=', 'cancelled')
             ->selectRaw("county as region, SUM(total) as sales, COUNT(*) as orders")
             ->groupBy('county')
             ->orderByDesc('sales');
 
-        if($request->filled('region')){
+        if ($request->filled('region')) {
             $byRegionQuery->where('county', $request->string('region'));
         }
 
@@ -80,13 +79,23 @@ class DashboardController extends Controller
             ->take(6)
             ->get();
 
-        return response()->json([
-            'data'=>[
-                'by_region' => $byRegionQuery->get(),
-                'top_products' => $topProducts,
-            ]
-        ]);
+        // Matches stats()'s revenue_series query — same pattern, scoped here
+        // to the last 6 months to feed the analytics page's LineChart.
+        $byMonth = Order::query()
+            ->where('status', '!=', 'cancelled')
+            ->where('created_at', '>=', now()->subMonths(6))
+            ->selectRaw("to_char(created_at, 'Mon') as month, SUM(total) as revenue")
+            ->groupByRaw("to_char(created_at, 'Mon'), date_trunc('month', created_at)")
+            ->orderByRaw("date_trunc('month', created_at)")
+            ->get();
 
+        return response()->json([
+            'data' => [
+                'by_region' => $byRegionQuery->get(),
+                'by_month' => $byMonth,
+                'top_products' => $topProducts,
+            ],
+        ]);
     }
 
 }

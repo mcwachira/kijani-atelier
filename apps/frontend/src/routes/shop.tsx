@@ -64,6 +64,32 @@ export const Route = createFileRoute('/shop')({
       : 'newest',
     page: Number(raw.page ?? 1),
   }),
+  // Runs server-side, using whatever search params are already resolved
+  // by validateSearch — this is what lets the shop page's INITIAL HTML
+  // contain real product cards instead of an empty ProductGrid skeleton.
+  loaderDeps: ({ search }) => ({ search }),
+  loader: async ({ deps, context }) => {
+    const filters: FilterState = {
+      category: deps.search.category,
+      size: deps.search.size,
+      material: deps.search.material,
+      priceRange: [
+        deps.search.min_price ?? 0,
+        deps.search.max_price ?? MAX_PRICE,
+      ],
+    }
+    const products = await context.queryClient.ensureQueryData(
+      productsQuery({
+        ...toQueryParams(filters),
+        search: deps.search.search,
+        sort: deps.search.sort ?? 'newest',
+        page: deps.search.page ?? 1,
+        per_page: 9,
+      }),
+    )
+    return { products }
+  },
+
   head: () => ({
     meta: [
       { title: 'Shop All — Sandals, Kiondos & Woven Bags | Kijani Atelier' },
@@ -79,6 +105,7 @@ export const Route = createFileRoute('/shop')({
       },
     ],
   }),
+
   component: ShopPage,
 })
 

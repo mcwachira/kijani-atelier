@@ -45,3 +45,16 @@ it('returns sales analytics filtered by region', function () {
     expect($regions)->toContain('Nairobi');
     expect($regions)->not->toContain('Mombasa');
 });
+
+it('includes monthly revenue in sales analytics', function () {
+    [, $token] = actingAsAdmin();
+
+    Order::factory()->create(['status' => 'paid'])->forceFill(['total' => 5000])->save();
+
+    $response = $this->withHeader('Authorization', "Bearer {$token}")
+        ->getJson('/api/v1/admin/analytics/sales');
+
+    $response->assertStatus(200);
+    expect($response->json('data.by_month'))->not->toBeEmpty();
+    expect($response->json('data.by_month.0'))->toHaveKeys(['month', 'revenue']);
+});
