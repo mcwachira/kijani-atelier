@@ -185,3 +185,28 @@ export interface PaymentStatus {
   status: 'pending' | 'completed' | 'failed'
   order_status: string
 }
+
+export interface AdminCustomer {
+  id: number
+  name: string
+  email: string
+  phone: string | null
+  role: 'customer' | 'admin'
+  email_verified_at: string | null
+  created_at: string
+  orders_count: number
+  orders_sum_total: number | null
+}
+
+// GET /admin/customers — NOTE: this endpoint returns Laravel's raw
+// paginator shape (data/current_page/last_page/... all at one level),
+// NOT the Resource-wrapped { data, meta } shape Paginated<T> expects
+// elsewhere (e.g. getProducts). Typed separately here rather than
+// reusing Paginated<T>, since the two are genuinely different shapes.
+export interface RawPaginated<T> {
+  data: T[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
