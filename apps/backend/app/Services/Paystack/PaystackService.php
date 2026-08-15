@@ -32,7 +32,7 @@ class PaystackService
     public function initialize(string $email, int $amountInSmallestUnit, string $reference, string $callbackUrl, array $metadata = []): array
     {
         $response = Http::withToken($this->secretKey)
-            ->post("{$this->baseUrl}/transaction/initiate", [
+            ->post("{$this->baseUrl}/transaction/initialize", [
                 'email' => $email,
                 'amount' => $amountInSmallestUnit,
                 'currency' => 'KES',

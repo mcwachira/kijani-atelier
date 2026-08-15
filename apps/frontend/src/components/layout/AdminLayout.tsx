@@ -7,6 +7,7 @@ import {
   Receipt,
   Store,
   Tags,
+  Users,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ const nav = [
   { to: '/admin/products', label: 'Products', icon: Boxes },
   { to: '/admin/categories', label: 'Categories', icon: Tags },
   { to: '/admin/orders', label: 'Orders', icon: Receipt },
+  { to: '/admin/customers', label: 'Customers', icon: Users },
   { to: '/admin/analytics', label: 'Sales analytics', icon: BarChart3 },
   { to: '/admin/messages', label: 'Messages', icon: MessagesSquare },
 ]
