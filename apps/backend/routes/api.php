@@ -25,10 +25,17 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('auth')->group(function () {
 
-        // PUBLIC — no token required to reach these.
-        Route::post('/register', [AuthController::class, 'register']);
-        Route::post('/login', [AuthController::class, 'login']);
-        Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink']);
+        // PUBLIC — no token required to reach these. register/login/
+        // forgot-password get the tighter 'auth' limiter (credential
+        // stuffing, registration spam, reset-email bombing) — the
+        // limiter itself (AppServiceProvider) returns Limit::none()
+        // under testing, so no per-route environment check is needed here.
+        Route::post('/register', [AuthController::class, 'register'])
+            ->middleware('throttle:auth');
+        Route::post('/login', [AuthController::class, 'login'])
+            ->middleware('throttle:auth');
+        Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])
+            ->middleware('throttle:auth');
         Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 
 
@@ -127,7 +134,10 @@ Route::prefix('v1')->group(function () {
     });
 
 // --- Messages — public submit, admin-only management ---
-    Route::post('/messages', [MessageController::class, 'store']);
+    // auth.optional so a logged-in sender's user_id gets attached (see
+    // MessageController::store) without requiring a token for guests.
+    Route::post('/messages', [MessageController::class, 'store'])
+        ->middleware('auth.optional');
 
     Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/admin/messages', [MessageController::class, 'index']);

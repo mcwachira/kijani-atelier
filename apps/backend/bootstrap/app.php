@@ -19,6 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
 //            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
 //        ]);
 
+        // Applies the 'api' limiter registered in AppServiceProvider to
+        // the whole api middleware group. That limiter itself returns an
+        // unlimited Limit under testing (app()->environment() isn't safe
+        // to call THIS early in bootstrap — it runs before the container
+        // has 'env' bound — so the environment check has to live in the
+        // limiter closure, not here).
+        $middleware->throttleApi();
+
         //let routes reference this as ->middleware('admin') instead of the
         //full class path - same pattern Laravel uses for 'auth','verified', etc.
 
