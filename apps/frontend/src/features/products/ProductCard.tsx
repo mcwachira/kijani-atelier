@@ -15,7 +15,7 @@ export function ProductCard({ product }: { product: Product }) {
       >
         <div className="relative overflow-hidden rounded-md bg-secondary">
           <img
-            src={product.images[0]}
+            src={product.images[0]?.url}
             alt={product.name}
             loading="lazy"
             width={1000}

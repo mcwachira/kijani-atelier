@@ -62,7 +62,7 @@ function MiniCart({ onClose }: { onClose: () => void }) {
             {items.map((item) => (
               <div key={item.id} className="flex gap-3">
                 <img
-                  src={item.product.images[0]}
+                  src={item.product.images[0]?.url}
                   alt={item.product.name}
                   className="h-20 w-16 shrink-0 rounded-md object-cover"
                 />
