@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Pencil, Plus, Trash2, AlertCircle } from 'lucide-react'
+import { Pencil, Plus, Trash2, AlertCircle ,ImagePlus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -104,6 +104,9 @@ function ProductForm({
   product?: Product
   onDone: () => void
 }) {
+
+  const [images, setImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const queryClient = useQueryClient()
   const { data: categories, isLoading: loadingCategories } =
     useQuery(categoriesQuery())
@@ -135,6 +138,38 @@ function ProductForm({
     },
   })
 
+  // Handle Image change
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+
+    if (!files.length) return
+
+    const selected = [...images, ...files].slice(0, 3)
+
+    setImages(selected)
+
+    imagePreviews.forEach((url) => {
+      URL.revokeObjectURL(url)
+    })
+
+    setImagePreviews(selected.map((file) => URL.createObjectURL(file)))
+
+    // Allow selecting the same file again.
+    e.target.value = ''
+  }
+
+  const removeImage = (index: number) => {
+    const nextImages = images.filter((_, i) => i !== index)
+
+    setImages(nextImages)
+
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url))
+
+    setImagePreviews(
+      nextImages.map((file) => URL.createObjectURL(file)),
+    )
+  }
+
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
@@ -154,7 +189,10 @@ function ProductForm({
       return
     }
     setErrors({})
-    mutation.mutate(parsed.data)
+    mutation.mutate({
+      ...parsed.data,
+      images,
+    })
   }
 
   return (
@@ -237,6 +275,65 @@ function ProductForm({
             <p className="mt-1 text-xs text-destructive">
               {errors.category_id}
             </p>
+          )}
+        </div>
+        <div className="sm:col-span-2">
+          <Label>Product images</Label>
+
+          <div className="mt-1.5">
+            <label
+              htmlFor="product-images"
+              className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border p-6 text-center transition-colors hover:bg-muted/50"
+            >
+              <ImagePlus className="mb-2 h-8 w-8 text-muted-foreground" />
+
+              <p className="text-sm font-medium">Upload product images</p>
+
+              <p className="mt-1 text-xs text-muted-foreground">
+                PNG, JPG or WEBP · Up to 3 images
+              </p>
+
+              <input
+                id="product-images"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                className="hidden"
+                onChange={handleImageChange}
+              />
+            </label>
+          </div>
+
+          {imagePreviews.length > 0 && (
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {imagePreviews.map((preview, index) => (
+                <div
+                  key={preview}
+                  className="group relative aspect-square overflow-hidden rounded-lg border"
+                >
+                  <img
+                    src={preview}
+                    alt={`Product preview ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute right-2 top-2 rounded-full bg-background/90 p-1 shadow"
+                    aria-label={`Remove image ${index + 1}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  {index === 0 && (
+                    <span className="absolute bottom-2 left-2 rounded bg-background/90 px-2 py-1 text-xs">
+                      Main image
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
         <div className="sm:col-span-2">
@@ -346,7 +443,7 @@ function AdminProducts() {
                   <TableRow key={p.id}>
                     <TableCell>
                       <img
-                        src={p.images[0]}
+                        src={p.images[0]?.url}
                         alt=""
                         loading="lazy"
                         className="h-12 w-10 rounded object-cover"

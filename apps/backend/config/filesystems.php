@@ -59,6 +59,17 @@ return [
             'throw' => false,
             'report' => false,
         ],
+        'supabase' => [
+            'driver' => 's3',
+            'key' => env('SUPABASE_STORAGE_ACCESS_KEY_ID'),
+            'secret' => env('SUPABASE_STORAGE_SECRET_ACCESS_KEY'),
+            'region' => env('SUPABASE_STORAGE_REGION'),
+            'bucket' => env('SUPABASE_STORAGE_BUCKET'),
+            'endpoint' => env('SUPABASE_STORAGE_ENDPOINT'),
+            'url' => env('SUPABASE_STORAGE_URL'),
+            'use_path_style_endpoint' => true,
+            'throw' => true,
+        ],
 
     ],
 

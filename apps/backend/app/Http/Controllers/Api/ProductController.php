@@ -8,6 +8,7 @@ use App\Http\Requests\Product\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 
 /**
@@ -136,7 +137,7 @@ class ProductController extends Controller
         $data = $request->validated();
 
         $product = Product::create([
-            ...collect($data)->except(['materials', 'sizes'])->all(),
+            ...collect($data)->except(['materials', 'sizes', 'images'])->all(),
             'slug' => $data['slug'] ?? \Illuminate\Support\Str::slug($data['name']),
         ]);
 
@@ -152,7 +153,38 @@ class ProductController extends Controller
             $product->sizes()->sync($data['sizes']);
         }
 
-        $product->load(['category', 'materials', 'sizes', 'images']);
+
+        /*
+         * Upload product images to Supabase Storage.
+         *
+         * Resulting paths:
+         *
+         * products/product-slug/1.png
+         * products/product-slug/2.png
+         * products/product-slug/3.png
+         */
+
+        if($request -> hasFile('images')) {
+            forEach($request -> file('images')as $index => $image) {
+                $path = $image->store("products/{$product->slug}", 'supabase');
+
+                $product->images()->create([
+                    'path' => $path,
+                    'sort_order' => $index,
+                ]);
+            }
+        }
+
+        /*
+        * Reload everything needed by ProductResource.
+        */
+        $product->load([
+            'category',
+            'materials',
+            'sizes',
+            'images',
+        ]);
+
 
         return (new ProductResource($product))->response()->setStatusCode(201);
     }
@@ -163,14 +195,14 @@ class ProductController extends Controller
      * Partial updates are supported — send only the fields you want to
      * change. Sending 'materials' or 'sizes' REPLACES the existing set
      * entirely (via sync), it does not merge with what's already attached.
-     *
+     * If new images are supplied, they REPLACE all existing images.
      * @authenticated
      */
     public function update(UpdateProductRequest $request, Product $product)
     {
         $data = $request->validated();
 
-        $product->update(collect($data)->except(['materials', 'sizes'])->all());
+        $product->update(collect($data)->except(['materials', 'sizes', 'images'])->all());
 
         if (array_key_exists('materials', $data)) {
             $product->materials()->sync($data['materials']);
@@ -179,7 +211,55 @@ class ProductController extends Controller
             $product->sizes()->sync($data['sizes']);
         }
 
-        $product->load(['category', 'materials', 'sizes', 'images']);
+        /*
+       * If images were uploaded, replace the existing images.
+       */
+
+        if($request -> hasFile('images')) {
+            /*
+           * Delete existing image files from Supabase.
+           */
+            foreach ($product->images as $oldImage) {
+                if ($oldImage->path) {
+                    Storage::disk('supabase')->delete(
+                        $oldImage->path
+                    );
+                }
+            }
+
+            /*
+         * Delete existing database records.
+         */
+
+            $product->images()->delete();
+
+            /*
+           * Upload the new images.
+           */
+            foreach ($request->file('images') as $index => $image) {
+                $path = $image->store(
+                    "products/{$product->slug}",
+                    'supabase'
+                );
+
+                $product->images()->create([
+                    'path' => $path,
+                    'sort_order' => $index,
+                ]);
+            }
+        }
+
+
+
+        /*
+         * Reload relationships.
+         */
+        $product->load([
+            'category',
+            'materials',
+            'sizes',
+            'images',
+        ]);
 
         return new ProductResource($product);
     }
@@ -196,8 +276,26 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
+        /*
+         * Delete image files from Supabase before
+         * deleting the database records/product.
+         */
+        foreach ($product->images as $image) {
+            if ($image->path) {
+                Storage::disk('supabase')->delete(
+                    $image->path
+                );
+            }
+        }
+
+        /*
+         * Product deletion should cascade to image DB records,
+         * pivots and reviews according to your model/database setup.
+         */
         $product->delete();
 
-        return response()->json(['message' => 'Product deleted.']);
+        return response()->json([
+            'message' => 'Product deleted.',
+        ]);
     }
 }

@@ -107,7 +107,7 @@ function WishlistPage(){
                   params={{ productId: item.product.slug }}
                 >
                   <img
-                    src={item.product.images[0]}
+                    src={item.product.images[0]?.url}
                     alt={item.product.name}
                     loading="lazy"
                     className="aspect-[4/5] w-full rounded-md object-cover"

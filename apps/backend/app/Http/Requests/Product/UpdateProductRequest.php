@@ -39,6 +39,13 @@ class UpdateProductRequest extends FormRequest
             'materials.*' => ['integer', 'exists:materials,id'],
             'sizes' => ['sometimes', 'array'],
             'sizes.*' => ['integer', 'exists:sizes,id'],
+            'images' => ['sometimes', 'nullable', 'array', 'max:3'],
+            'images.*' => [
+                'file',
+                'image',
+                'mimes:jpeg,jpg,png,webp',
+                'max:5120',
+            ],
         ];
     }
 }

@@ -60,8 +60,8 @@ export const Route = createFileRoute('/products/$productId')({
             product?.description ??
             'Handcrafted piece made in small batches by artisans in Kenya.',
         },
-        ...(product?.images?.[0]
-          ? [{ property: 'og:image', content: product.images[0] }]
+        ...(product?.images?.[0]?.url
+          ? [{ property: 'og:image', content: product.images[0].url }]
           : []),
       ],
     }
@@ -131,16 +131,17 @@ function ProductPage() {
           {/* Gallery */}
           <div>
             <img
-              src={product.images[activeImage]}
+              src={product.images[activeImage]?.url}
               alt={product.name}
               width={1000}
               height={1250}
               className="aspect-[4/5] w-full rounded-md object-cover"
             />
+
             <div className="mt-4 flex gap-3">
               {product.images.map((img, i) => (
                 <button
-                  key={i}
+                  key={img.id}
                   type="button"
                   onClick={() => setActiveImage(i)}
                   className={cn(
@@ -150,7 +151,7 @@ function ProductPage() {
                   aria-label={`View image ${i + 1}`}
                 >
                   <img
-                    src={img}
+                    src={img.url}
                     alt=""
                     loading="lazy"
                     className="aspect-square w-full object-cover"

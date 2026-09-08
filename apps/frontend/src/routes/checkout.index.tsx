@@ -246,7 +246,7 @@ function CheckoutPage() {
               {items.map((i) => (
                 <li key={i.id} className="flex items-center gap-3">
                   <img
-                    src={i.product.images[0]}
+                    src={i.product.images[0]?.url}
                     alt=""
                     loading="lazy"
                     className="h-14 w-12 rounded object-cover"

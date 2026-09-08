@@ -26,6 +26,13 @@ export interface Review {
   created_at: string
 }
 
+export interface ProductImage {
+  id: number
+  path: string
+  url: string
+  sort_order: number
+}
+
 export interface Product {
   id: number
   name: string
@@ -37,7 +44,7 @@ export interface Product {
   craft_note: string
   materials: { id: number; name: string }[]
   sizes: { id: number; value: string }[]
-  images: string[]
+  images: ProductImage[]
   stock: number
   rating: number
   reviews_count: number
