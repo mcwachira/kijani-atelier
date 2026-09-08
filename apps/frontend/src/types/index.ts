@@ -13,8 +13,10 @@ export interface Category {
   name: string
   slug: string
   description: string
-  image: string
-  products_count: number
+  image: string | null
+  product_image: string | null
+  products_count?: number
+  created_at: string
 }
 
 export interface Review {
