@@ -124,18 +124,36 @@ function HomePage() {
               search={{ category: c.slug }}
               className="group relative overflow-hidden rounded-md"
             >
-              <img
-                src={c.image}
-                alt={c.name}
-                loading="lazy"
-                width={1000}
-                height={1250}
-                className="aspect-[3/4] w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/70 to-transparent p-5">
-                <h3 className="font-display text-2xl text-background">
-                  {c.name}
-                </h3>
+              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md bg-muted">
+                {c.product_image ? (
+                  <img
+                    src={c.product_image}
+                    alt={c.name}
+                    loading="lazy"
+                    width={1000}
+                    height={1250}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+            <span className="font-display text-2xl text-muted-foreground">
+              {c.name}
+            </span>
+                  </div>
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-foreground/80 via-foreground/30 to-transparent p-5 pt-16">
+                  <h3 className="font-display text-2xl text-background">
+                    {c.name}
+                  </h3>
+
+                  {c.products_count !== undefined && (
+                    <p className="mt-1 text-xs text-background/75">
+                      {c.products_count}{' '}
+                      {c.products_count === 1 ? 'piece' : 'pieces'}
+                    </p>
+                  )}
+                </div>
               </div>
             </Link>
           ))}

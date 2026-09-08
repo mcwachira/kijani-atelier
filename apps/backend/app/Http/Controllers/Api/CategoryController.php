@@ -30,7 +30,12 @@ class CategoryController extends Controller
         // withCount('products') computes the count via a single SQL
         // subquery, not by loading every product — this is what makes
         // CategoryResource's whenCounted('products') actually populate.
-        $categories = Category::withCount('products')->orderBy('name')->get();
+        $categories = Category::with([
+            'representativeProduct.images',
+        ])
+            ->withCount('products')
+            ->orderBy('name')
+            ->get();
 
         return CategoryResource::collection($categories);
     }
@@ -46,7 +51,10 @@ class CategoryController extends Controller
      */
     public function show(string $slug)
     {
-        $category = Category::withCount('products')
+        $category = Category::with([
+            'representativeProduct.images',
+        ])
+            ->withCount('products')
             ->where('slug', $slug)
             ->firstOrFail();
 
