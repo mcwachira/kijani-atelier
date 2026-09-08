@@ -27,6 +27,3 @@ class MessageResource extends JsonResource
         ];
     }
 }
-
-
-https://creatorapp.zoho.com/navraj_tingashare/purchase-requisition-system/record_summary/Purchase_Orders_Report/4873572000000535050/

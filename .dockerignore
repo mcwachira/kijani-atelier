@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+.github
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules
+**/node_modules
+vendor
+**/vendor
+
+# Frontend build output
+dist
+**/dist
+build
+**/build
+.next
+**/.next
+
+# Laravel runtime/generated files
+apps/backend/storage/logs/*
+apps/backend/storage/framework/cache/*
+apps/backend/storage/framework/sessions/*
+apps/backend/storage/framework/views/*
+apps/backend/bootstrap/cache/*
+
+# Laravel development files
+apps/backend/tests
+apps/backend/phpunit.xml
+apps/backend/.phpunit.result.cache
+
+# Database / backups
+backups
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+
+# IDE / OS
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Documentation / misc
+README.md
+*.log

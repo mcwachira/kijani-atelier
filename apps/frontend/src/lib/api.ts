@@ -99,12 +99,19 @@ async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData
+
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     // Accept: application/json is important — without it, Laravel may
     // respond with an HTML error page instead of JSON for certain errors,
     // which would break this function's response.json() call below.
     Accept: 'application/json',
+    ...(isFormData
+      ? {}
+      : {
+          'Content-Type': 'application/json',
+        }),
     ...(options.headers as Record<string, string>),
   }
   // Attach the bearer token to every authenticated request automatically —
@@ -115,9 +122,13 @@ async function apiFetch<T>(
   }
 
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {...options, headers})
 
-  const data = await response.json();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  })
+
+  const data = await response.json()
 
   if (!response.ok) {
     // Laravel's error responses are shaped { message, errors? }. We
@@ -675,24 +686,87 @@ export interface ProductInput {
   description?: string
   materials?: number[]
   sizes?: number[]
+  images: File[]
 }
 
 // POST /products
 export function createProduct(input: ProductInput): Promise<Product> {
+  const formData = new FormData()
+
+  formData.append('name', input.name)
+  formData.append('price', String(input.price))
+  formData.append('stock', String(input.stock))
+  formData.append('category_id', String(input.category_id))
+
+  if (input.description) {
+    formData.append('description', input.description)
+  }
+
+  input.materials?.forEach((id) => {
+    formData.append('materials[]', String(id))
+  })
+
+  input.sizes?.forEach((id) => {
+    formData.append('sizes[]', String(id))
+  })
+
+  input.images?.forEach((file) => {
+    formData.append('images[]', file)
+  })
   return apiFetch<{ data: Product }>('/products', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: formData,
   }).then((res) => res.data)
 }
 
 // PUT /products/{product} — partial update; only send fields that changed.
-export function updateProduct(id: number, input: Partial<ProductInput>): Promise<Product> {
+export function updateProduct(
+  id: number,
+  input: Partial<ProductInput>,
+): Promise<Product> {
+  const formData = new FormData()
+
+  if (input.name !== undefined) {
+    formData.append('name', input.name)
+  }
+
+  if (input.price !== undefined) {
+    formData.append('price', String(input.price))
+  }
+
+  if (input.stock !== undefined) {
+    formData.append('stock', String(input.stock))
+  }
+
+  if (input.category_id !== undefined) {
+    formData.append('category_id', String(input.category_id))
+  }
+
+  if (input.description !== undefined) {
+    formData.append('description', input.description)
+  }
+
+  input.materials?.forEach((id) => {
+    formData.append('materials[]', String(id))
+  })
+
+  input.sizes?.forEach((id) => {
+    formData.append('sizes[]', String(id))
+  })
+
+  input.images?.forEach((file) => {
+    formData.append('images[]', file)
+  })
+
+  // Laravel handles multipart PUT/PATCH more reliably using POST
+  // with _method=PUT.
+  formData.append('_method', 'PUT')
+
   return apiFetch<{ data: Product }>(`/products/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(input),
+    body: formData,
   }).then((res) => res.data)
 }
-
 // DELETE /products/{product}
 export function deleteProduct(id: number): Promise<{ message: string }> {
   return apiFetch<{ message: string }>(`/products/${id}`, { method: 'DELETE' })

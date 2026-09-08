@@ -42,7 +42,7 @@ class DashboardController extends Controller
             'data'=> [
                 'total_sales' => $totalSales,
                 'orders_count' => $ordersCount,
-                'customer_count' => $customerCount,
+                'customers_count' => $customerCount,
                 'average_order_value'=>$ordersCount > 0 ? intdiv($totalSales, $ordersCount):0,
                 'revenue_series' => $revenueSeries,
                 'recent_orders' =>\App\Http\Resources\OrderResource::collection($recentOrders),

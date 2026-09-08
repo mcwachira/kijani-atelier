@@ -53,7 +53,12 @@ function LoginPage() {
 
 
       toast.success(`Welcome back, ${res.user.name.split(' ')[0]}.`)
-      navigate({ to: '/' })
+
+      if (res.user.role === 'admin') {
+        navigate({ to: '/admin' })
+      } else {
+        navigate({ to: '/' })
+      }
     },
     onError: (err: ApiError) => {
       // The backend deliberately returns the SAME generic message whether

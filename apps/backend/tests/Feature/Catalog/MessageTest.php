@@ -14,6 +14,24 @@ it('lets anyone submit a contact message', function () {
         ->assertJsonPath('data.unread', true);
 });
 
+it('links a contact message to the sender when logged in', function () {
+    [$customer, $token] = actingAsCustomer();
+
+    $response = $this->withHeader('Authorization', "Bearer {$token}")
+        ->postJson('/api/v1/messages', [
+            'name' => $customer->name,
+            'email' => $customer->email,
+            'subject' => 'Sizing question',
+            'body' => 'I wanted to ask about the fit of the Amani slide.',
+        ]);
+
+    $response->assertStatus(201);
+    $this->assertDatabaseHas('messages', [
+        'id' => $response->json('data.id'),
+        'user_id' => $customer->id,
+    ]);
+});
+
 it('rejects a contact message that is too short', function () {
     $this->postJson('/api/v1/messages', [
         'name' => 'W',

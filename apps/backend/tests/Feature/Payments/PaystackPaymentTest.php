@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 
 it('initializes a Paystack transaction for a valid order', function () {
     Http::fake([
-        '*/transaction/initiate' => Http::response([
+        '*/transaction/initialize' => Http::response([
             'status' => true,
             'data' => [
                 'authorization_url' => 'https://checkout.paystack.com/abc123',
@@ -40,7 +40,7 @@ it('initializes a Paystack transaction for a valid order', function () {
     // Confirms the amount sent is in kobo/cents (order total * 100) and,
     // as with M-Pesa, that it's the SERVER's total, never a client value.
     Http::assertSent(function ($request) use ($order) {
-        return str_contains($request->url(), 'initiate')
+        return str_contains($request->url(), 'initialize')
             && $request['amount'] === $order->total * 100
             && $request['email'] === 'customer@example.com';
     });

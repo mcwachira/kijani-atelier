@@ -48,6 +48,14 @@ class StoreProductRequest extends FormRequest
             'materials.*' => ['integer', 'exists:materials,id'],
             'sizes' => ['nullable', 'array'],
             'sizes.*' => ['integer', 'exists:sizes,id'],
+            // Product images
+            'images' => ['nullable', 'array', 'max:3'],
+            'images.*' => [
+                'file',
+                'image',
+                'mimes:jpeg,jpg,png,webp',
+                'max:5120',
+            ],
 
         ];
     }
