@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class CartResource extends JsonResource
 {
@@ -15,16 +16,24 @@ class CartResource extends JsonResource
     public function toArray(Request $request): array
     {
 
-        $items  = $this->whenLoaded('items');
-        return[
-            'id'=> $this->id,
-            'items'=> CartItemResource::collection($items),
-            // Subtotal is computed from the loaded items, not stored —
-            // this is the ONE place cart-level totals get calculated, so
-            // frontend code never has to sum line_totals itself.
-            'subtotal' => $items instanceof \Illuminate\Support\Collection
-                ? $items->sum(fn ($item) => $item->quantity * $item->product->price)
-                : 0,
-        ];
+       $representativeImage = $this->representativeProduct ?->image ?->first();
+
+       return [
+           'id' => $this->id,
+           'name' => $this->name,
+           'slug' => $this->slug,
+           'description' => $this->description,
+
+           // Keep the existing manually assigned category image.
+           'image' => $this->image,
+
+           // Automatically use a product image for the homepage.
+           'product_image' => $representativeImage
+               ? Storage::disk('supabase')->url($representativeImage->path)
+               : null,
+
+           'products_count' => $this->whenCounted('products'),
+           'created_at' => $this->created_at,
+       ]
     }
 }
