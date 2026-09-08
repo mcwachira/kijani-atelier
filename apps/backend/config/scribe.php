@@ -7,6 +7,13 @@ use Knuckles\Scribe\Extracting\Strategies;
 use function Knuckles\Scribe\Config\configureStrategy;
 use function Knuckles\Scribe\Config\removeStrategies;
 
+
+
+if (!class_exists('Knuckles\\Scribe\\Config\\Defaults')) {
+    return [];
+}
+
+
 // Only the most common configs are shown. See the https://scribe.knuckles.wtf/laravel/reference/config for all.
 
 return [
