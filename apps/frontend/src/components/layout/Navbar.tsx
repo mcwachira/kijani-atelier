@@ -2,6 +2,8 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import {
   Heart,
   Menu,
+    Sun,
+    Moon,
   ShoppingBag,
   User,
   LogOut,
@@ -32,7 +34,8 @@ import { useCart } from '@/hooks/use-cart'
 import { useAuth } from '@/hooks/use-auth'
 import { logout as logoutApi } from '@/lib/api'
 import { formatKes } from '@/lib/format'
-import { MobileSearchTrigger } from '../GlobalSearch.tsx'
+import { GlobalSearch, MobileSearchTrigger } from '@/components/GlobalSearch.tsx'
+import { useTheme } from '@/hooks/use-theme'
 
 const NAV_LINKS = [
   { to: '/shop', label: 'Shop' },
@@ -124,6 +127,7 @@ function MiniCart({ onClose }: { onClose: () => void }) {
 
 export function Navbar() {
   const { count } = useWishlist()
+  const { theme, toggleTheme } = useTheme()
   const { items: cartItems } = useCart()
   const { user, isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
@@ -231,7 +235,12 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-1">
-          <MobileSearchTrigger />
+          <GlobalSearch className="hidden w-44 md:block lg:w-60" />
+          <MobileSearchTrigger className="md:hidden" />
+
+          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle colour mode">
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
 
           <Button variant="ghost" size="icon" asChild className="relative" aria-label="Wishlist">
             <Link to="/wishlist">

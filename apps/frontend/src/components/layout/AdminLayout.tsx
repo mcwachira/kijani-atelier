@@ -7,7 +7,6 @@ import {
   MessagesSquare,
   Moon,
   Receipt,
-  Store,
   Sun,
   Tags,
   Users,

@@ -325,8 +325,8 @@ export function GlobalSearch({
                 )}
               >
                 <img
-                  src={p.images[0]}
-                  alt=""
+                  src={p.images[0]?.url}
+                  alt={p.name}
                   loading="lazy"
                   className="h-11 w-9 shrink-0 rounded object-cover"
                 />
