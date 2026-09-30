@@ -9,7 +9,7 @@ class VerifyMpesaIp
 {
     /**
      * Safaricom's Daraja callbacks carry no cryptographic signature,
-     * unlike Paystack's HMAC-signed webhooks — this is inherent to how
+     * unlike HMAC-signed webhooks (e.g. Pesapal's IPN model) — this is inherent to how
      * M-Pesa's API works, not something we can fix on our side. IP
      * allowlisting is the practical defense-in-depth available here:
      * restrict the callback route to Safaricom's own published IP

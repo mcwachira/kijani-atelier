@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessMpesaCallback;
+use App\Jobs\ProcessPesapalNotification;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\WebhookEvent;
 use App\Services\Mpesa\MpesaService;
-use App\Services\Paystack\PaystackService;
+use App\Services\Pesapal\PesapalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +22,7 @@ class PaymentController extends Controller
 {
     public function __construct(
         private MpesaService $mpesa,
-        private PaystackService $paystack,
+        private PesapalService $pesapal,
     ) {}
 
     public function initiateMpesa(Request $request)
@@ -32,12 +35,18 @@ class PaymentController extends Controller
         $order = Order::where('reference', $data['order_reference'])->firstOrFail();
         $amount = $order->total;
 
-        $result = $this->mpesa->stkPush(
-            phone: $data['phone'],
-            amount: $amount,
-            accountReference: $order->reference,
-            description: "Payment for order {$order->reference}",
-        );
+        try {
+            $result = $this->mpesa->stkPush(
+                phone: $data['phone'],
+                amount: $amount,
+                accountReference: $order->reference,
+                description: "Payment for order {$order->reference}",
+            );
+        } catch (\Throwable $e) {
+            Log::warning('M-Pesa initiation failed', ['order' => $order->reference, 'error' => $e->getMessage()]);
+
+            return response()->json(['message' => 'M-Pesa is temporarily unavailable. Please try again or pay by card.'], 503);
+        }
 
         $payment = Payment::create([
             'order_id' => $order->id,
@@ -77,43 +86,46 @@ class PaymentController extends Controller
             return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Already processed']);
         }
 
-        DB::transaction(function () use ($payment, $stkCallBack, $resultCode, $payload) {
-            if ((int) $resultCode === 0) {
-                $metadata = collect($stkCallBack['CallbackMetadata']['Item'] ?? [])->pluck('Value', 'Name');
-                $previousStatus = $payment->order->status;
+        // Persist-then-queue: the raw callback is stored before anything
+        // else, so even a crash mid-processing keeps the evidence. A
+        // replayed delivery is marked as a duplicate and acked without
+        // dispatching — the job itself stays idempotent as a second guard.
+        [$webhookEvent, $created] = WebhookEvent::recordOnce(
+            'mpesa',
+            $checkoutRequestId,
+            $payload
+        );
 
-                $payment->forceFill([
-                    'status' => 'completed',
-                    'provider_reference' => $metadata->get('MpesaReceiptNumber'),
-                    'raw_payload' => $payload,
-                ])->save();
+        if (! $created) {
+            $webhookEvent->mark('duplicate');
 
-                $payment->order->forceFill(['status' => 'paid'])->save();
+            return response()->json([
+                'ResultCode' => 0,
+                'ResultDesc' => 'Already received',
+            ]);
+        }
 
-                \App\Models\OrderStatusEvent::create([
-                    'order_id' => $payment->order_id,
-                    'actor_id' => null,
-                    'from_status' => $previousStatus,
-                    'to_status' => 'paid',
-                    'note' => 'Paid via M-Pesa (' . $metadata->get('MpesaReceiptNumber') . ')',
-                    'actor' => 'M-Pesa',
-                ]);
-            } else {
-                $payment->forceFill(['status' => 'failed', 'raw_payload' => $payload])->save();
-            }
-        });
+        // Heavy lifting happens on the queue — Safaricom gets its
+        // acknowledgement immediately, the DB work follows. With a sync
+        // queue driver (tests, some dev setups) this still runs inline.
+        ProcessMpesaCallback::dispatch($payment->id, $stkCallBack, $payload);
 
         return response()->json(['ResultCode' => 0, 'ResultDesc' => 'Success']);
     }
 
     /**
-     * Initialize a Paystack transaction
+     * Initialize a Pesapal card transaction
+     *
+     * The customer pays on Pesapal's hosted page (cards, bank, mobile
+     * money) — card details are entered there, never on this site. We
+     * submit the order, store the tracking ID on a pending payment, and
+     * hand the redirect URL to the frontend.
      *
      * @unauthenticated
      * @bodyParam order_reference string required Example: KJ-AB12CD
      * @bodyParam email string required Example: customer@example.com
      */
-    public function initiatePaystack(Request $request)
+    public function initiatePesapal(Request $request)
     {
         $data = $request->validate([
             'order_reference' => ['required', 'string', 'exists:orders,reference'],
@@ -121,105 +133,90 @@ class PaymentController extends Controller
         ]);
 
         $order = Order::where('reference', $data['order_reference'])->firstOrFail();
-        $amount = $order->total;
 
-        $result = $this->paystack->initialize(
+        if ($order->status !== 'pending') {
+            return response()->json(['message' => 'This order can no longer be paid for.'], 422);
+        }
+
+        $names = preg_split('/\s+/', trim($order->customer_name), 2);
+
+        try {
+            $result = $this->pesapal->submitOrder(
+            merchantReference: $order->reference . '-' . uniqid(),
+            amount: $order->total,
+            currency: 'KES',
+            description: "Kijani Atelier order {$order->reference}",
+            callbackUrl: config('pesapal.callback_url'),
             email: $data['email'],
-            amountInSmallestUnit: $amount * 100,
-            reference: $order->reference . '-' . uniqid(),
-            callbackUrl: config('services.paystack.callback_url'),
-            metadata: ['order_reference' => $order->reference],
+            phone: $order->phone,
+            firstName: $names[0] ?? $order->customer_name,
+            lastName: $names[1] ?? '',
         );
+        } catch (\App\Services\Pesapal\PesapalException $e) {
+            Log::warning('Pesapal initiation failed', ['order' => $order->reference, 'error' => $e->getMessage()]);
+
+            return response()->json(['message' => 'Card payments are temporarily unavailable. Please try again or pay with M-Pesa.'], 503);
+        }
 
         $payment = Payment::create([
             'order_id' => $order->id,
             'method' => 'card',
-            'checkout_request_id' => $result['reference'],
-            'amount' => $amount,
+            'checkout_request_id' => $result['order_tracking_id'],
+            'amount' => $order->total,
         ]);
 
         return response()->json([
-            'authorization_url' => $result['authorization_url'],
-            'reference' => $result['reference'],
+            'redirect_url' => $result['redirect_url'],
+            'order_tracking_id' => $result['order_tracking_id'],
             'payment_id' => $payment->id,
         ], 202);
     }
 
-
     /**
-     * Paystack webhook
+     * Pesapal IPN endpoint.
+     *
+     * The IPN carries NO payment status by Pesapal's design — so this
+     * only extracts the tracking ID, queues the authoritative status
+     * check, and acknowledges immediately.
      *
      * @unauthenticated
      */
-    public function paystackWebhook(Request $request)
+    public function pesapalIpn(Request $request)
     {
-        if (! $this->paystack->verifyWebhookSignature($request->getContent(), $request->header('X-Paystack-Signature'))) {
-            Log::warning('Invalid Paystack webhook signature');
-            return response()->json(['message' => 'Invalid signature'], 400);
+        $trackingId = $request->input('OrderTrackingId')
+            ?? $request->input('order_tracking_id');
+
+        if (! $trackingId) {
+            return response()->json(['message' => 'Missing tracking ID.'], 400);
         }
 
-        $event = $request->input('event');
-        $data = $request->input('data');
+        // Audit-only record: Pesapal re-fires the IPN when the status
+        // CHANGES (e.g. INVALID → COMPLETED), so a replay must still
+        // dispatch — the job re-fetches the authoritative status and its
+        // guards make repeat runs safe no-ops.
+        WebhookEvent::recordOnce('pesapal', $trackingId, $request->all());
 
-        if ($event === 'charge.success') {
-            $payment = Payment::where('checkout_request_id', $data['reference'])->first();
-
-            if ($payment && $payment->status === 'pending') {
-                DB::transaction(function () use ($payment, $data, $request) {
-                    $previousStatus = $payment->order->status;
-
-                    $payment->forceFill([
-                        'status' => 'completed',
-                        'provider_reference' => $data['id'],
-                        'raw_payload' => $request->all(),
-                    ])->save();
-
-                    $payment->order->forceFill(['status' => 'paid'])->save();
-
-                    \App\Models\OrderStatusEvent::create([
-                        'order_id' => $payment->order_id,
-                        'actor_id' => null,
-                        'from_status' => $previousStatus,
-                        'to_status' => 'paid',
-                        'note' => 'Paid via card (Paystack ref: ' . $data['reference'] . ')',
-                        'actor' => 'Paystack',
-                    ]);
-                });
-            }
-        } elseif ($event === 'charge.failed') {
-            $payment = Payment::where('checkout_request_id', $data['reference'] ?? null)->first();
-            $payment?->forceFill(['status' => 'failed', 'raw_payload' => $request->all()])->save();
-        }
+        ProcessPesapalNotification::dispatch($trackingId);
 
         return response()->json(['received' => true]);
     }
 
-
     /**
-     * Verify a transaction directly
+     * Check a Pesapal transaction directly — used when the customer
+     * returns from hosted checkout before the IPN has been processed.
+     * Queues the same idempotent job the IPN uses, so both paths share
+     * one code path and one outcome.
      *
      * @unauthenticated
      */
-    public function verifyPaystack(string $reference)
+    public function verifyPesapal(string $trackingId)
     {
-        $data = $this->paystack->verify($reference);
+        ProcessPesapalNotification::dispatch($trackingId);
 
-        $payment = Payment::where('checkout_request_id', $reference)->first();
-
-        if ($payment && $data['status'] === 'success' && $payment->status === 'pending') {
-            DB::transaction(function () use ($payment, $data) {
-                $payment->forceFill([
-                    'status' => 'completed',
-                    'provider_reference' => $data['id'],
-                    'raw_payload' => $data,
-                ])->save();
-
-                $payment->order->forceFill(['status' => 'paid'])->save();
-            });
-        }
+        $payment = Payment::with('order')->where('checkout_request_id', $trackingId)->first();
 
         return response()->json([
-            'status' => $payment?->status ?? $data['status'],
+            'status' => $payment?->status ?? 'unknown',
             'order_status' => $payment?->order->status,
         ]);
     }

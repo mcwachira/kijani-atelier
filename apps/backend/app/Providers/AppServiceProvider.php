@@ -17,7 +17,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // SmsProviderInterface resolves to the configured driver.
+        // Swapping providers later means changing SMS_PROVIDER, not
+        // touching every caller — the job and any future notifiers only
+        // ever type-hint the interface.
+        $this->app->bind(
+            \App\Services\Sms\SmsProviderInterface::class,
+            fn () => match (config('sms.provider')) {
+                'africastalking' => new \App\Services\Sms\AfricasTalkingSmsProvider(),
+                default => new \App\Services\Sms\LogSmsProvider(),
+            }
+        );
     }
 
     /**
@@ -25,6 +35,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Fail fast on SMS misconfiguration (enabled but missing admin
+        // phone / API key). Throws at boot, so a bad deploy is loud
+        // instead of silently dropping notifications from the queue.
+        // No-op when SMS is disabled.
+        \App\Services\Sms\SmsConfigValidator::validate(config('sms'));
+
         // General safety net for the whole API. Both limiters return
         // Limit::none() under testing — the suite fires far more requests
         // than either ceiling within the single wall-clock minute it runs

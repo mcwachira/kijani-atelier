@@ -3,9 +3,10 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
-  type ReactNode,
+  useMemo
+  
 } from 'react'
+import type {ReactNode} from 'react';
 import type { Product } from '@/types'
 import { usePersistedState } from './use-persisted-state'
 import { useAuth } from './use-auth'
@@ -13,9 +14,10 @@ import {
   addToWishlist,
   getWishlist,
   removeWishlistItem,
-  syncWishlist,
-  type WishlistItemApi,
+  syncWishlist
+  
 } from '@/lib/api'
+import type {WishlistItemApi} from '@/lib/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 const STORAGE_KEY = 'kijani-wishlist-v1'
@@ -49,7 +51,7 @@ function parseStored(raw: string | null): WishlistItem[] {
     return parsed
       .filter((i): i is WishlistItem => {
         const item = i as Partial<WishlistItem>
-        return !!item?.product && typeof item.product.id === 'number'
+        return !!item.product && typeof item.product.id === 'number'
       })
       .map((i) => ({
         product: i.product,
@@ -202,7 +204,6 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     if (isAuthenticated && localItems.length > 0 && hydrated) {
       setLocalItems([])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, hydrated])
 
   const value = useMemo<WishlistContextValue>(

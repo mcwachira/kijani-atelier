@@ -14,7 +14,7 @@ class Message extends Model
 {
 
     use HasFactory;
-    protected $fillable = ['user_id','name', 'email', 'subject', 'body'];
+    protected $fillable = ['user_id','name', 'email', 'phone', 'subject', 'body'];
 
     protected function casts():array
     {

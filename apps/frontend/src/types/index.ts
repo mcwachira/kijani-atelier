@@ -181,6 +181,7 @@ export interface Message {
   id: number
   name: string
   email: string
+  phone: string | null
   subject: string
   preview: string
   body: string

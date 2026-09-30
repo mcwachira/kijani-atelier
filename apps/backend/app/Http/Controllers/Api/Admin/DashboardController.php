@@ -30,10 +30,15 @@ class DashboardController extends Controller
         $revenueSeries = Order::query()
             ->where('status', '!=', 'cancelled')
             ->where('created_at', '>=', now()->subMonths(6))
-            ->selectRaw("to_char(created_at, 'Mon') as month, SUM(total) as revenue, COUNT(*) as orders")
-            ->groupByRaw("to_char(created_at,  'Mon'), date_trunc('month', created_at)")
-            ->orderByRaw("date_trunc('month', created_at)")
-            ->get();
+            ->get(['created_at', 'total'])
+            ->groupBy(fn ($o) => $o->created_at->format('Y-m'))
+            ->sortKeys()
+            ->map(fn ($orders, $key) => [
+                'month' => $orders->first()->created_at->format('M'),
+                'revenue' => $orders->sum('total'),
+                'orders' => $orders->count(),
+            ])
+            ->values();
 
         $recentOrders = Order::with('items')->latest()->take(6)->get();
 
@@ -79,15 +84,17 @@ class DashboardController extends Controller
             ->take(6)
             ->get();
 
-        // Matches stats()'s revenue_series query — same pattern, scoped here
-        // to the last 6 months to feed the analytics page's LineChart.
         $byMonth = Order::query()
             ->where('status', '!=', 'cancelled')
             ->where('created_at', '>=', now()->subMonths(6))
-            ->selectRaw("to_char(created_at, 'Mon') as month, SUM(total) as revenue")
-            ->groupByRaw("to_char(created_at, 'Mon'), date_trunc('month', created_at)")
-            ->orderByRaw("date_trunc('month', created_at)")
-            ->get();
+            ->get(['created_at', 'total'])
+            ->groupBy(fn ($o) => $o->created_at->format('Y-m'))
+            ->sortKeys()
+            ->map(fn ($orders) => [
+                'month' => $orders->first()->created_at->format('M'),
+                'revenue' => $orders->sum('total'),
+            ])
+            ->values();
 
         return response()->json([
             'data' => [
