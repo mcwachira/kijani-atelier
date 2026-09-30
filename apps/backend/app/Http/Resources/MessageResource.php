@@ -18,6 +18,7 @@ class MessageResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'phone' => $this->phone,
             'subject' => $this->subject,
             'preview' => $this->preview, // computed accessor on the model
             'body' => $this->body,

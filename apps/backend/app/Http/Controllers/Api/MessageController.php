@@ -23,6 +23,7 @@ class MessageController extends Controller
      * @unauthenticated
      * @bodyParam name string required Example: Wanjiru Kamau
      * @bodyParam email string required Example: wanjiru@example.com
+     * @bodyParam phone string required Kenyan/international format. Example: +254712345678
      * @bodyParam subject string required Example: Sizing question
      * @bodyParam body string required Example: I wanted to ask about the fit of the Amani slide.
      */
@@ -41,6 +42,8 @@ class MessageController extends Controller
         $message->user_id = $request->user()?->id;
         $message->forceFill(['unread' => true]);
         $message->save();
+
+        \App\Jobs\SendContactMessageSms::dispatch($message->id)->afterCommit();
 
         return (new MessageResource($message))->response()->setStatusCode(201);
     }
