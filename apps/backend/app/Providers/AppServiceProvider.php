@@ -17,7 +17,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // SmsProviderInterface resolves to the configured driver.
+        // Swapping providers later means changing SMS_PROVIDER, not
+        // touching every caller — the job and any future notifiers only
+        // ever type-hint the interface.
+        $this->app->bind(
+            \App\Services\Sms\SmsProviderInterface::class,
+            fn () => match (config('sms.provider')) {
+                'africastalking' => new \App\Services\Sms\AfricasTalkingSmsProvider(),
+                default => new \App\Services\Sms\LogSmsProvider(),
+            }
+        );
     }
 
     /**
