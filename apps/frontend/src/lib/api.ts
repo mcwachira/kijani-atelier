@@ -420,19 +420,19 @@ export function initiateMpesaPayment(input: {
   })
 }
 
-// POST /payments/card/initiate — returns a Paystack-hosted checkout URL.
-// Redirect the browser there; Paystack collects card details itself, so
-// no card data ever touches this frontend or your backend directly.
+// POST /payments/pesapal/initiate — returns Pesapal's hosted checkout
+// URL. Redirect the browser there; Pesapal collects card details itself,
+// so no card data ever touches this frontend or your backend directly.
 
-export function initiatePaystackPayment(input: {
+export function initiatePesapalPayment(input: {
   order_reference: string
   email: string
 }): Promise<{
-  authorization_url: string
-  reference: string
+  redirect_url: string
+  order_tracking_id: string
   payment_id: number
 }> {
-  return apiFetch('/payments/card/initiate', {
+  return apiFetch('/payments/pesapal/initiate', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -440,17 +440,17 @@ export function initiatePaystackPayment(input: {
 
 
 // GET /payments/{paymentId}/status — poll this after initiating M-Pesa
-// (or as a fallback after returning from Paystack's redirect) until
+// (or as a fallback after returning from Pesapal's redirect) until
 // status moves off 'pending'.
 export function getPaymentStatus(paymentId: number): Promise<PaymentStatus> {
   return apiFetch(`/payments/${paymentId}/status`)
 }
 
-// GET /payments/card/verify/{reference} — direct verification, used when
-// the customer returns from Paystack's checkout page. Confirms status
-// immediately rather than waiting for the async webhook.
-export function verifyPaystackPayment(reference: string): Promise<PaymentStatus> {
-  return apiFetch(`/payments/card/verify/${reference}`)
+// GET /payments/pesapal/status/{trackingId} — direct verification, used
+// when the customer returns from Pesapal's checkout page. Queues the same
+// idempotent status check the IPN uses, rather than waiting for it.
+export function verifyPesapalPayment(trackingId: string): Promise<PaymentStatus> {
+  return apiFetch(`/payments/pesapal/status/${trackingId}`)
 }
 
 
@@ -574,6 +574,7 @@ export function syncWishlist(
 export function createMessage(input: {
   name: string
   email: string
+  phone: string
   subject: string
   body: string
 }): Promise<Message> {
@@ -710,7 +711,7 @@ export function createProduct(input: ProductInput): Promise<Product> {
     formData.append('sizes[]', String(id))
   })
 
-  input.images?.forEach((file) => {
+  input.images.forEach((file) => {
     formData.append('images[]', file)
   })
   return apiFetch<{ data: Product }>('/products', {

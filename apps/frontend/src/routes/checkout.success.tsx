@@ -10,16 +10,23 @@ import { StatusBadge } from '@/features/admin/StatusBadge'
 import { orderQuery } from '@/lib/queries'
 import { useCart } from '@/hooks/use-cart'
 import { formatKes } from '@/lib/format'
-import { verifyPaystackPayment } from '@/lib/api'
+import { verifyPesapalPayment } from '@/lib/api'
 
 export const Route = createFileRoute('/checkout/success')({
   validateSearch: (search: Record<string, unknown>) => ({
     reference:
       typeof search.reference === 'string' ? search.reference : undefined,
-    // Paystack's OWN redirect param — present only when arriving back
-    // from Paystack's hosted checkout, never on an internal navigation
+    // Pesapal's redirect params — present only when arriving back from
+    // Pesapal's hosted checkout, never on an internal navigation
     // (M-Pesa's flow lands here without ever leaving the site).
-    trxref: typeof search.trxref === 'string' ? search.trxref : undefined,
+    OrderTrackingId:
+      typeof search.OrderTrackingId === 'string'
+        ? search.OrderTrackingId
+        : undefined,
+    OrderMerchantReference:
+      typeof search.OrderMerchantReference === 'string'
+        ? search.OrderMerchantReference
+        : undefined,
   }),
   head: () => ({
     meta: [
@@ -43,36 +50,35 @@ export const Route = createFileRoute('/checkout/success')({
 
 function CheckoutSuccessPage() {
   const search = Route.useSearch()
-  const isPaystackReturn = !!search.trxref
+  const isPesapalReturn = !!search.OrderTrackingId
 
-  // On a Paystack return, `reference` in the URL is PAYSTACK'S own
-  // transaction reference, not our order reference — recover the real
-  // order reference from where CardPayment stashed it right before
-  // redirecting away. For the M-Pesa/direct-visit path, search.reference
-  // already IS the order reference, same as before.
+  // On a Pesapal return, the URL carries Pesapal's OrderTrackingId, not
+  // our order reference — recover the real order reference from where
+  // CardPayment stashed it right before redirecting away. For the
+  // M-Pesa/direct-visit path, search.reference already IS the order
+  // reference, same as before.
   const [reference] = useState<string | undefined>(() =>
-    isPaystackReturn
+    isPesapalReturn
       ? (sessionStorage.getItem('kijani_pending_order_reference') ?? undefined)
       : search.reference,
   )
 
-  const [verifying, setVerifying] = useState(isPaystackReturn)
+  const [verifying, setVerifying] = useState(isPesapalReturn)
   const [verifyFailed, setVerifyFailed] = useState(false)
 
   useEffect(() => {
-    if (!isPaystackReturn || !search.reference) {
+    if (!isPesapalReturn || !search.OrderTrackingId) {
       setVerifying(false)
       return
     }
-    // search.reference here is PAYSTACK'S transaction reference — the
-    // right value to verify against, distinct from our order reference.
-    verifyPaystackPayment(search.reference)
+    // The tracking ID is what the backend verifies against — it fetches
+    // the authoritative status from Pesapal, never trusting this redirect.
+    verifyPesapalPayment(search.OrderTrackingId)
       .catch(() => setVerifyFailed(true))
       .finally(() => {
         setVerifying(false)
         sessionStorage.removeItem('kijani_pending_order_reference')
       })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const {

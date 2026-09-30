@@ -20,9 +20,10 @@ import {
   createOrder,
   getPaymentStatus,
   initiateMpesaPayment,
-  initiatePaystackPayment,
-  type ApiError,
+  initiatePesapalPayment
+  
 } from '@/lib/api'
+import type { ApiError } from '@/lib/api'
 import { formatKes } from '@/lib/format'
 import { useCart } from '@/hooks/use-cart'
 import { cn } from '@/lib/utils'
@@ -247,7 +248,7 @@ function CheckoutPage() {
                 <li key={i.id} className="flex items-center gap-3">
                   <img
                     src={i.product.images[0]?.url}
-                    alt=""
+                    alt={i.product.name}
                     loading="lazy"
                     className="h-14 w-12 rounded object-cover"
                   />
@@ -325,18 +326,26 @@ function MpesaPayment({
 
   useEffect(() => {
     if (!paymentId || phase !== 'waiting') return
-    let cancelled = false
+    // A mutable box (not a plain let, and not useRef which can't sit
+    // after the early return) so the cleanup closure below can signal
+    // in-flight polls to stop.
+    const cancelledRef = { current: false }
 
     const poll = async () => {
-      if (cancelled) return
+      if (cancelledRef.current) return
       try {
         const result = await getPaymentStatus(paymentId)
-        if (cancelled) return
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
+        if (cancelledRef.current) return
 
         if (result.status === 'completed') {
           navigate({
             to: '/checkout/success',
-            search: { reference: order.reference, trxref: undefined },
+            search: {
+              reference: order.reference,
+              OrderTrackingId: undefined,
+              OrderMerchantReference: undefined,
+            },
           })
           return
         }
@@ -352,13 +361,14 @@ function MpesaPayment({
         }
         setTimeout(poll, 3000)
       } catch {
-        if (!cancelled) setTimeout(poll, 3000)
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
+        if (!cancelledRef.current) setTimeout(poll, 3000)
       }
     }
 
     poll()
     return () => {
-      cancelled = true
+      cancelledRef.current = true
     }
   }, [paymentId, phase, navigate, order.reference])
 
@@ -443,13 +453,13 @@ function MpesaPayment({
 }
 
 /**
- * Card step — redirects the whole browser to Paystack's hosted checkout
+ * Card step — redirects the whole browser to Pesapal's hosted checkout
  * page. Card details are entered there, never on this site (required
- * for PCI compliance). Paystack redirects back to /checkout/success
- * afterward, which verifies the transaction directly.
+ * for PCI compliance). Pesapal redirects back to /checkout/success
+ * afterward, which checks the transaction status directly.
  */
 function CardPayment({ order }: { order: Order }) {
-  const [email, setEmail] = useState(order.email ?? '')
+  const [email, setEmail] = useState(order.email)
   const [submitting, setSubmitting] = useState(false)
 
   const initiate = async () => {
@@ -459,16 +469,16 @@ function CardPayment({ order }: { order: Order }) {
     }
     setSubmitting(true)
     try {
-      const res = await initiatePaystackPayment({
+      const res = await initiatePesapalPayment({
         order_reference: order.reference,
         email,
       })
-      // Paystack's redirect back appends ITS OWN ?reference=&trxref=
-      // params, overwriting whatever "reference" means to this app.
+      // Pesapal's redirect back appends ITS OWN ?OrderTrackingId= (plus
+      // OrderMerchantReference) params, which mean nothing to this app.
       // Stash the real order reference here so /checkout/success can
-      // recover it regardless of what Paystack's redirect URL looks like.
+      // recover it regardless of what Pesapal's redirect URL looks like.
       sessionStorage.setItem('kijani_pending_order_reference', order.reference)
-      window.location.href = res.authorization_url
+      window.location.href = res.redirect_url
     } catch (err) {
       toast.error((err as ApiError).message || 'Could not start card payment.')
       setSubmitting(false)
