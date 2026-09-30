@@ -70,17 +70,59 @@ class AfricasTalkingSmsProvider implements SmsProviderInterface
     }
 
     /**
-     * Normalize to international format: strip separators, convert a
-     * leading Kenyan 0 (0712…) to +254712….
+     * Normalize to E.164-style international format.
+     *
+     * Rules (Kenya-focused, international-safe):
+     * - formatting characters (spaces, hyphens, parens, dots) are stripped
+     * - a leading 00 international prefix becomes +
+     * - Kenyan local numbers (0 + 9 digits) become +254…
+     * - Kenyan numbers already starting with 254 become +254…
+     * - numbers already starting with + keep their country code
+     * - anything else (empty, non-numeric, wrong length, bare national
+     *   numbers we can't attribute to a country) throws instead of
+     *   producing a plausible-looking but wrong number
+     *
+     * @throws SmsException When the input is not a recognizable number.
      */
     public static function normalize(string $phone): string
     {
-        $digits = preg_replace('/[^\d+]/', '', $phone) ?? '';
+        $cleaned = trim($phone);
 
-        if (str_starts_with($digits, '0') && strlen($digits) === 10) {
-            return '+254' . substr($digits, 1);
+        if ($cleaned === '') {
+            throw new SmsException('Phone number is empty.');
         }
 
-        return str_starts_with($digits, '+') ? $digits : '+' . $digits;
+        // Strip common formatting; a '+' is only meaningful leading.
+        $cleaned = preg_replace('/[\s\-().\/]/', '', $cleaned) ?? '';
+
+        if (! preg_match('/^\+?\d+$/', $cleaned)) {
+            throw new SmsException("Phone number '{$phone}' is not a valid number.");
+        }
+
+        if (str_starts_with($cleaned, '00')) {
+            $cleaned = '+' . substr($cleaned, 2);
+        }
+
+        if (str_starts_with($cleaned, '+')) {
+            $digits = strlen($cleaned) - 1;
+
+            if ($digits < 7 || $digits > 15) {
+                throw new SmsException("Phone number '{$phone}' has an invalid length.");
+            }
+
+            return $cleaned;
+        }
+
+        // Kenyan local format: 0712… (10 digits).
+        if (preg_match('/^0\d{9}$/', $cleaned)) {
+            return '+254' . substr($cleaned, 1);
+        }
+
+        // Kenyan number without the +: 254712….
+        if (preg_match('/^254\d{9}$/', $cleaned)) {
+            return '+' . $cleaned;
+        }
+
+        throw new SmsException("Phone number '{$phone}' needs a country code (e.g. +254712345678).");
     }
 }
