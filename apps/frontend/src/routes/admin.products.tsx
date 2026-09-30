@@ -201,7 +201,7 @@ function ProductForm({
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {(mutation.error as Error).message || 'Something went wrong.'}
+            {(mutation.error).message || 'Something went wrong.'}
           </AlertDescription>
         </Alert>
       )}
@@ -411,7 +411,7 @@ function AdminProducts() {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="flex items-center justify-between gap-4">
                 <span>
-                  {(error as Error).message || 'Could not load products.'}
+                  {(error).message || 'Could not load products.'}
                 </span>
                 <Button
                   size="sm"
@@ -444,7 +444,7 @@ function AdminProducts() {
                     <TableCell>
                       <img
                         src={p.images[0]?.url}
-                        alt=""
+                        alt={p.name}
                         loading="lazy"
                         className="h-12 w-10 rounded object-cover"
                       />

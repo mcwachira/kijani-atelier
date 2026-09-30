@@ -148,7 +148,8 @@ function AdminMessages() {
               <>
                 <h2 className="font-display text-2xl">{selected.subject}</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {selected.name} · {selected.email} ·{' '}
+                  {selected.name} · {selected.email}
+                  {selected.phone ? ` · ${selected.phone}` : ''} ·{' '}
                   {formatDate(selected.created_at)}
                 </p>
 

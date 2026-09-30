@@ -60,7 +60,7 @@ function AdminCustomerDetail() {
           <Card className="shadow-[var(--shadow-soft)]">
             <CardContent className="pt-6">
               <h3 className="font-display text-lg">Order history</h3>
-              {!customer.orders?.length ? (
+              {!customer.orders.length ? (
                 <p className="mt-4 text-sm text-muted-foreground">
                   No orders yet.
                 </p>

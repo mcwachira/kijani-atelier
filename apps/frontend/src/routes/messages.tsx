@@ -25,7 +25,10 @@ export const Route = createFileRoute('/messages')({
 })
 
 function MessagesPage() {
+  // Two steps, same visual language: 1) who you are, 2) what it's about.
+  const [step, setStep] = useState<1 | 2>(1)
   const [sent, setSent] = useState(false)
+  const [contact, setContact] = useState({ name: '', email: '', phone: '' })
 
   const mutation = useMutation({
     mutationFn: createMessage,
@@ -36,12 +39,22 @@ function MessagesPage() {
     onError: (err: ApiError) => toast.error(err.message || "We couldn't send that. Please try again."),
   })
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+  const submitStep1 = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = new FormData(e.currentTarget)
+    setContact({
+      name: String(form.get('name')),
+      email: String(form.get('email')),
+      phone: String(form.get('phone')),
+    })
+    setStep(2)
+  }
+
+  const submitStep2 = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
     mutation.mutate({
-      name: String(form.get('name')),
-      email: String(form.get('email')),
+      ...contact,
       subject: String(form.get('subject')),
       body: String(form.get('body')),
     })
@@ -59,16 +72,63 @@ function MessagesPage() {
           <div className="mt-9 rounded-lg border border-border bg-card p-6">
             <p className="text-sm">Thanks — your message is in. We'll reply by email shortly.</p>
           </div>
-        ) : (
-          <form className="mt-9 space-y-4" onSubmit={submit}>
+        ) : step === 1 ? (
+          <form className="mt-9 space-y-4" onSubmit={submitStep1}>
             <div>
               <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" required maxLength={255} className="mt-1.5" />
+              <Input
+                id="name"
+                name="name"
+                required
+                minLength={2}
+                maxLength={255}
+                defaultValue={contact.name}
+                className="mt-1.5"
+              />
             </div>
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required className="mt-1.5" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                defaultValue={contact.email}
+                className="mt-1.5"
+              />
             </div>
+            <div>
+              <Label htmlFor="phone">Phone number</Label>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                required
+                maxLength={20}
+                placeholder="+254712345678"
+                defaultValue={contact.phone}
+                className="mt-1.5"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Kenyan mobile (0712…) or international format.
+              </p>
+            </div>
+            <Button type="submit" size="lg" className="w-full">
+              Continue
+            </Button>
+          </form>
+        ) : (
+          <form className="mt-9 space-y-4" onSubmit={submitStep2}>
+            <p className="text-xs text-muted-foreground">
+              Sending as {contact.name} · {contact.email} · {contact.phone}{' '}
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Edit
+              </button>
+            </p>
             <div>
               <Label htmlFor="subject">Subject</Label>
               <Input id="subject" name="subject" required maxLength={255} className="mt-1.5" />

@@ -124,7 +124,8 @@ Route::prefix('v1')->group(function () {
 
 // --- Orders — guest checkout allowed, lookup by reference is public ---
 // --- Orders — guest checkout allowed, lookup by reference is public ---
-    Route::middleware('auth.optional')->post('/orders', [OrderController::class, 'store']);
+    Route::middleware('auth.optional')->post('/orders', [OrderController::class, 'store'])
+        ->middleware(app()->environment('testing') ? [] : 'throttle:30,1');
     Route::get('/orders/{reference}', [OrderController::class, 'show']);
     Route::middleware('auth:sanctum')->get('/my-orders', [OrderController::class, 'index']);
 
@@ -137,7 +138,7 @@ Route::prefix('v1')->group(function () {
     // auth.optional so a logged-in sender's user_id gets attached (see
     // MessageController::store) without requiring a token for guests.
     Route::post('/messages', [MessageController::class, 'store'])
-        ->middleware('auth.optional');
+        ->middleware(array_filter(['auth.optional', app()->environment('testing') ? null : 'throttle:10,1']));
 
     Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/admin/messages', [MessageController::class, 'index']);
@@ -152,10 +153,10 @@ Route::prefix('v1')->group(function () {
             ->middleware(app()->environment('testing') ? [] : 'throttle:5,1');
         Route::post('/mpesa/callback', [PaymentController::class, 'mpesaCallback'])
             ->middleware('verify.mpesa.ip');
-        Route::post('/card/initiate', [PaymentController::class, 'initiatePaystack'])
+        Route::post('/pesapal/initiate', [PaymentController::class, 'initiatePesapal'])
             ->middleware(app()->environment('testing') ? [] : 'throttle:5,1');
-        Route::post('/card/webhook', [PaymentController::class, 'paystackWebhook']);
-        Route::get('/card/verify/{reference}', [PaymentController::class, 'verifyPaystack']);
+        Route::match(['get', 'post'], '/pesapal/ipn', [PaymentController::class, 'pesapalIpn']);
+        Route::get('/pesapal/status/{trackingId}', [PaymentController::class, 'verifyPesapal']);
         Route::get('/{paymentId}/status', [PaymentController::class, 'status']);
     });
 

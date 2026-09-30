@@ -227,3 +227,27 @@ it('rejects a callback from a non-allowlisted IP when verification is enabled', 
         'Body' => ['stkCallback' => ['CheckoutRequestID' => 'anything', 'ResultCode' => 0]],
     ])->assertStatus(403);
 });
+
+it('records the callback as a webhook event and ignores replays', function () {
+    $order = Order::factory()->create();
+    $order->forceFill(['status' => 'pending'])->save();
+    $payment = Payment::factory()->create([
+        'order_id' => $order->id,
+        'method' => 'mpesa',
+        'checkout_request_id' => 'ws_CO_replay1',
+    ]);
+    $payment->forceFill(['status' => 'pending'])->save();
+
+    $payload = ['Body' => ['stkCallback' => [
+        'CheckoutRequestID' => 'ws_CO_replay1',
+        'ResultCode' => 1,
+        'ResultDesc' => 'Cancelled by user',
+    ]]];
+
+    $this->postJson('/api/v1/payments/mpesa/callback', $payload)->assertStatus(200);
+    // Exact replay: still acked, still exactly one event row.
+    $this->postJson('/api/v1/payments/mpesa/callback', $payload)->assertStatus(200);
+
+    expect(App\Models\WebhookEvent::where('provider', 'mpesa')->where('event_id', 'ws_CO_replay1')->count())->toBe(1);
+    expect($payment->fresh()->status)->toBe('failed');
+});
