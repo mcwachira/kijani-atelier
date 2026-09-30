@@ -73,7 +73,7 @@ function RegisterPage() {
       navigate({ to: '/' })
     },
     onError: (error: any) => {
-      //authApi throws Laravel's raw error body:{message:errors?}
+      // authApi throws Laravel's raw error body:{message:errors?}
       // errors is keyed by field name — show the FIRST specific message
       // if one exists, otherwise fall back to the generic message.
 

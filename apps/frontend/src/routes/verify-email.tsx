@@ -57,7 +57,6 @@ function VerifyEmailPage() {
       hasFired.current = true
       mutation.mutate()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkIsUsable])
 
   return (
@@ -95,7 +94,7 @@ function VerifyEmailPage() {
             <XCircle className="h-10 w-10 text-destructive" aria-hidden />
             <p className="mt-3 font-display text-xl">Verification failed</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {(mutation.error as ApiError)?.message ||
+              {(mutation.error as ApiError).message ||
                 'This link may have expired.'}
             </p>
             <Button asChild variant="outline" className="mt-5 w-full">
