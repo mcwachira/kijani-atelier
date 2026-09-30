@@ -41,17 +41,17 @@ class OrderController extends Controller
         // or stock decremented with no matching order to explain why.
 
         $order = DB::transaction(function () use ($data, $request) {
-            $line = [];
+            $lines = [];
             $total = 0;
 
 
-        foreach ($data['items'] as $line) {
+        foreach ($data['items'] as $item) {
             // lockForUpdate() prevents a race condition where two
             // simultaneous checkouts both read the same stock count
             // and both believe there's enough, over-selling the item.
-            $product = Product::lockForUpdate()->findOrFail($line['product_id']);
+            $product = Product::lockForUpdate()->findOrFail($item['product_id']);
 
-            if ($product->stock < $line['quantity']) {
+            if ($product->stock < $item['quantity']) {
                 abort(422, "Not enough stock for {$product->name}.");
             }
 
@@ -59,12 +59,12 @@ class OrderController extends Controller
                 'product_id' => $product->id,
                 'product_name' => $product->name,
                 'price' => $product->price,
-                'quantity' => $line['quantity'],
-                'size' => $line['size'] ?? null,
+                'quantity' => $item['quantity'],
+                'size' => $item['size'] ?? null,
             ];
 
 
-            $total += $product->price * $line['quantity'];
+            $total += $product->price * $item['quantity'];
         }
 
         $order =  new Order();
@@ -178,6 +178,20 @@ class OrderController extends Controller
             return response()->json([
                 'message' => "Cannot change status from '{$order->status}' to '{$data['status']}'.",
             ], 422);
+        }
+
+        // Cancellations go through the model method so the reserved
+        // stock is released in the same transaction. All other
+        // transitions keep the direct path (no stock movement involved).
+        if ($data['status'] === 'cancelled') {
+            $order->load('items');
+            $order->cancelAndRestoreStock(
+                $request->user()->name,
+                $data['note'] ?? 'Cancelled by admin — stock released.'
+            );
+            $order->load('items', 'statusHistory');
+
+            return new OrderResource($order);
         }
 
         $previousStatus = $order->status;
