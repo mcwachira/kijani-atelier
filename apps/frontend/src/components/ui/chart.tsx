@@ -152,10 +152,12 @@ function ChartTooltipContent({
     }
 
     const [item] = payload
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- see above
     const key = `${labelKey ?? item?.dataKey ?? item?.name ?? "value"}`
     const itemConfig = getPayloadConfigFromPayload(config, item, key)
     const value =
       !labelKey && typeof label === "string"
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- config may lack this data-driven key at runtime
         ? (config[label]?.label ?? label)
         : itemConfig?.label
 
@@ -212,6 +214,7 @@ function ChartTooltipContent({
                   indicator === "dot" && "items-center"
                 )}
               >
+                {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- item comes from a filtered array; guard stays for runtime safety */}
                 {formatter && item?.value !== undefined && item.name ? (
                   formatter(item.value, item.name, item, index, item.payload)
                 ) : (
@@ -349,7 +352,7 @@ function getPayloadConfigFromPayload(
     key in payload &&
     typeof payload[key as keyof typeof payload] === "string"
   ) {
-    configLabelKey = payload[key as keyof typeof payload] as string
+    configLabelKey = payload[key as keyof typeof payload]
   } else if (
     payloadPayload &&
     key in payloadPayload &&
@@ -357,7 +360,7 @@ function getPayloadConfigFromPayload(
   ) {
     configLabelKey = payloadPayload[
       key as keyof typeof payloadPayload
-    ] as string
+    ]
   }
 
   return configLabelKey in config ? config[configLabelKey] : config[key]
