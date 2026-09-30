@@ -33,9 +33,15 @@ export const Route = createFileRoute('/products/$productId')({
   // head() now runs AFTER the loader, so it has access to loaderData —
   // this makes the <title>/description/og tags PRODUCT-SPECIFIC instead
   // of the old static, generic copy repeated on every product page.
-  head: ({ loaderData }) => {
+  head: ({ loaderData, params }) => {
     const product = loaderData?.product
     return {
+      links: [
+        {
+          rel: 'canonical',
+          href: `https://kijaniatelier.com/products/${params.productId}`,
+        },
+      ],
       meta: [
         {
           title: product
@@ -60,7 +66,7 @@ export const Route = createFileRoute('/products/$productId')({
             product?.description ??
             'Handcrafted piece made in small batches by artisans in Kenya.',
         },
-        ...(product?.images?.[0]?.url
+        ...(product?.images[0]?.url
           ? [{ property: 'og:image', content: product.images[0].url }]
           : []),
       ],
@@ -84,7 +90,7 @@ function ProductPage() {
 
   const { data: related } = useQuery({
     ...productsQuery({
-      category: product?.category?.slug,   // second ?. added
+      category: product?.category.slug,   // second ?. added
       per_page: 4,
     }),
     enabled: !!product?.category,           // also guard enabled on category specifically
@@ -108,8 +114,37 @@ function ProductPage() {
 
   const needsSize = product.sizes.length > 0
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.description,
+    image: product.images.map((img) => img.url),
+    brand: { '@type': 'Brand', name: 'Kijani Atelier' },
+    offers: {
+      '@type': 'Offer',
+      url: `https://kijaniatelier.com/products/${product.slug}`,
+      priceCurrency: 'KES',
+      price: product.price,
+      availability:
+        product.stock > 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+    },
+    ...(product.reviews_count > 0
+      ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: product.rating,
+            reviewCount: product.reviews_count,
+          },
+        }
+      : {}),
+  }
+
   return (
     <StoreLayout>
+      <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground">
@@ -152,7 +187,7 @@ function ProductPage() {
                 >
                   <img
                     src={img.url}
-                    alt=""
+                    alt={`${product.name} — view ${i + 1}`}
                     loading="lazy"
                     className="aspect-square w-full object-cover"
                   />

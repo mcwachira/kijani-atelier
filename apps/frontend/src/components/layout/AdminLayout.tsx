@@ -70,13 +70,13 @@ export function AdminLayout({title, description, children}:{title:string; descri
                 {item.label}
               </Link>
             ))}
-            {/*<Link*/}
+            {/* <Link*/}
             {/*  to="/"*/}
             {/*  className="mt-2 flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"*/}
-            {/*>*/}
+            {/* >*/}
             {/*  <Store className="h-4 w-4 shrink-0" />*/}
             {/*  Back to store*/}
-            {/*</Link>*/}
+            {/* </Link>*/}
 
             <div className="mt-auto border-t border-border pt-4">
               <div className="px-3 py-2">

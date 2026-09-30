@@ -34,9 +34,10 @@ import { categoriesQuery } from '@/lib/queries'
 import {
   createCategory,
   deleteCategory,
-  updateCategory,
-  type CategoryInput,
+  updateCategory
+  
 } from '@/lib/api'
+import type {CategoryInput} from '@/lib/api';
 import { zodFieldErrors } from '@/lib/utils'
 import type { Category } from '@/types'
 
@@ -119,7 +120,7 @@ function CategoryForm({
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {(mutation.error as Error).message || 'Something went wrong.'}
+            {(mutation.error).message || 'Something went wrong.'}
           </AlertDescription>
         </Alert>
       )}
@@ -231,7 +232,7 @@ function AdminCategories() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between gap-4">
               <span>
-                {(error as Error).message || 'Could not load categories.'}
+                {(error).message || 'Could not load categories.'}
               </span>
               <Button
                 size="sm"
@@ -256,7 +257,7 @@ function AdminCategories() {
               {c.image ? (
                 <img
                   src={c.image}
-                  alt=""
+                  alt={c.name}
                   loading="lazy"
                   className="h-16 w-14 shrink-0 rounded object-cover"
                 />
